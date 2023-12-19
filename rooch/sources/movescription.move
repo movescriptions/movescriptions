@@ -1,9 +1,13 @@
 module movescription::movescription{
     use std::string::{Self, String};
     use std::option::{Self, Option};
+    use std::bcs;
+    use std::vector;
     use moveos_std::context::{Self, Context};
     use moveos_std::table::{Self, Table};
     use moveos_std::object::{Self, Object, ObjectID};
+    use rooch_framework::hash;
+    use rooch_framework::account;
 
     const MAX_TICK_LENGTH: u64 = 32;
     const MIN_TICK_LENGTH: u64 = 4;
@@ -13,6 +17,7 @@ module movescription::movescription{
     const ErrorTickNotExists: u64 = 3;
     const ErrorMintExceedsLimit: u64 = 4;
     const ErrorMintExceedsMax: u64 = 5;
+    const ErrorInvalidPoW: u64 = 6;
 
 
     struct MovescriptionRegistry has key{
@@ -24,6 +29,8 @@ module movescription::movescription{
         /// length >= 4
         tick: std::string::String,
         protocol: P,
+        /// The PoW difficulty of the Movescription
+        difficulty: u64,
     }
 
     struct Movescription has key, store{
@@ -64,7 +71,7 @@ module movescription::movescription{
         object::to_shared(registry_obj);
     }
 
-    entry fun deploy_mrc20(ctx: &mut Context, registry_obj: &mut Object<MovescriptionRegistry>, tick: String, max: u256, limit: u256, decimals: u64) {
+    entry fun deploy_mrc20(ctx: &mut Context, registry_obj: &mut Object<MovescriptionRegistry>, tick: String, difficulty: u64, max: u256, limit: u256, decimals: u64) {
         let unique_tick = to_lower_case(tick);
         assert!(string::length(&unique_tick) >= MIN_TICK_LENGTH, ErrorTickLengthInvaid);
         assert!(string::length(&unique_tick) <= MAX_TICK_LENGTH, ErrorTickLengthInvaid);
@@ -79,6 +86,7 @@ module movescription::movescription{
         let info = MovescriptionInfo {
             tick: tick,
             protocol: mrc20,
+            difficulty: difficulty,
         };
         let info_obj = context::new_object(ctx, info);
         let info_id = object::id(&info_obj);
@@ -90,14 +98,18 @@ module movescription::movescription{
         table::add(&mut registry.infos, unique_tick, supply);
     }
 
-    entry fun mint_mrc20(ctx: &mut Context, registry_obj: &mut Object<MovescriptionRegistry>, tick: String, value: u256) {
+    entry fun mint_mrc20(ctx: &mut Context, registry_obj: &mut Object<MovescriptionRegistry>, tick: String, value: u256, nonce: u64) {
         let unique_tick = to_lower_case(tick);
+        let sender = context::sender(ctx);
+
         let registry = object::borrow_mut(registry_obj);
         assert!(table::contains(&registry.infos, unique_tick), ErrorTickNotExists);
         let supply = table::borrow_mut(&mut registry.infos, unique_tick);
 
         let info_obj = context::borrow_object<MovescriptionInfo<MRC20>>(ctx, supply.info_id);
         let info = object::borrow(info_obj);
+
+        assert!(validate_pow(ctx, sender, unique_tick, value, info.difficulty, nonce), ErrorInvalidPoW);
         let mrc20 = &info.protocol;
         assert!(value <= mrc20.limit, ErrorMintExceedsLimit);
 
@@ -111,12 +123,43 @@ module movescription::movescription{
             metadata: option::none(),
         };
         let movescription_obj = context::new_object(ctx, movescription);
-        let sender = context::sender(ctx);
+        
         object::transfer(movescription_obj, sender);
     }
 
     fun to_lower_case(s: String) : String {
         //TODO
         s
+    }
+
+    public fun validate_pow(ctx: &Context, sender: address, tick: String, value: u256, difficulty: u64, nonce: u64) : bool {
+        let data = pow_input(ctx, sender, tick, value);
+        let data_hash = hash::keccak256(&data);
+        vector::append(&mut data_hash, bcs::to_bytes(&nonce));
+        std::debug::print(&data_hash);
+        let hash = hash::keccak256(&data_hash);
+        std::debug::print(&hash);
+        let i = 0; 
+        while(i < difficulty) {
+            if(*vector::borrow(&hash, i) != 0){
+                return false
+            };
+            i = i + 1;
+        };
+        true
+    }
+
+    public fun pow_input(ctx: &Context, sender: address,  tick: String, value: u256) : vector<u8> {
+        let sequence_number = account::sequence_number(ctx, sender);
+
+        let data = vector::empty();
+        vector::append(&mut data, *string::bytes(&tick));
+        vector::append(&mut data, bcs::to_bytes(&value));
+
+        vector::append(&mut data, bcs::to_bytes(&sender));
+        vector::append(&mut data, bcs::to_bytes(&sequence_number));
+        std::debug::print(&data);
+        //TODO should we add a timestamp here?
+        data
     }
 }
