@@ -22,6 +22,7 @@ enum Commands {
 }
 
 fn main() {
+    let _ = tracing_subscriber::fmt::try_init();
     let cli = MovescriptionCli::parse();
     match cli.command {
         Commands::Pow {

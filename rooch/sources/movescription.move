@@ -162,4 +162,10 @@ module movescription::movescription{
         //TODO should we add a timestamp here?
         data
     }
+
+    #[test]
+    fun test_nonce(){
+        std::debug::print(&bcs::to_bytes(&1));
+        std::debug::print(&bcs::to_bytes(&2));
+    }
 }

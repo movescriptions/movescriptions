@@ -30,7 +30,7 @@ rooch move run --function default::movescription::deploy_mrc20 --args object:def
 5. Get PoW input
 
 ```bash
-rooch move view --function default::movescription::pow_input --args address:default --args string:move --args u256:1000
+rooch move view --function default::movescription::pow_input --args address:default --args string:move --args u256:1000 
 ```
 ```json
 {
@@ -39,9 +39,9 @@ rooch move view --function default::movescription::pow_input --args address:defa
     {
       "value": {
         "type_tag": "vector<u8>",
-        "value": "0x4c6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810100000000000000"
+        "value": "0x4c6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810900000000000000"
       },
-      "decoded_value": "0x6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810100000000000000"
+      "decoded_value": "0x6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810900000000000000"
     }
   ]
 }
@@ -50,14 +50,33 @@ rooch move view --function default::movescription::pow_input --args address:defa
 6. Calculate PoW
 
 ```bash
-movescription pow -i 0x6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810100000000000000 -d 2
-difficulty: 2, hash: 0000caa26c6104ea21c5051188a480b088da8abe87ada55d2281b823886b8608, nonce: 19571, use millis: 12
+movescription pow -i 0x6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810900000000000000 -d 2
+difficulty: 2, hash: 0000ce51c2983b9ae51fd7d0a009ad147e365162b02a2c99ccd923ba285eb5a3, nonce: 121245, use millis: 72
+```
+
+Validate the nonce
+```bash
+rooch move view --function default::movescription::validate_pow --args address:default --args string:move --args u256:1000 --args u64:2 --args u64:121245
+```
+```json
+{
+  "vm_status": "Executed",
+  "return_values": [
+    {
+      "value": {
+        "type_tag": "bool",
+        "value": "0x01"
+      },
+      "decoded_value": true
+    }
+  ]
+}
 ```
 
 5. Mint MRC20
 
 ```bash
-rooch move run --function default::movescription::mint_mrc20 --args object:default::movescription::MovescriptionRegistry --args string:move --args u256:1000 --args u64:19571
+rooch move run --function default::movescription::mint_mrc20 --args object:default::movescription::MovescriptionRegistry --args string:move --args u256:1000 --args u64:121245
 ```
 
 6. Query state
