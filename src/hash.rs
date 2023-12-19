@@ -1,4 +1,5 @@
 use fastcrypto::hash::{HashFunction, Keccak256};
+use tracing::trace;
 
 fn hash<H: HashFunction<DIGEST_SIZE>, const DIGEST_SIZE: usize>(data: &[u8]) -> [u8; DIGEST_SIZE] {
     H::digest(data).digest
@@ -14,13 +15,14 @@ pub fn pow(input: &[u8], difficulty: u64) -> ([u8; 32], u64) {
     let mut bytes = [0; 40];
     bytes[..32].copy_from_slice(&input_data_hash);
     loop {
-        bytes[32..].copy_from_slice(&nonce.to_be_bytes());
+        bytes[32..].copy_from_slice(&nonce.to_le_bytes());
         let hash = keccak256(&bytes);
         for (i, b) in hash.iter().enumerate() {
             if *b != 0 {
                 if i < difficulty as usize {
                     break;
                 } else {
+                    trace!("found hash bytes: {}", hex::encode(bytes));
                     return (hash, nonce);
                 }
             }
@@ -53,5 +55,11 @@ mod tests {
         do_pow_test(data, 2);
         do_pow_test(data, 3);
         do_pow_test(data, 4);
+    }
+
+    #[test]
+    fn test_nonce(){
+        println!("nonce: {}", hex::encode(1u64.to_le_bytes()));
+        println!("nonce: {}", hex::encode(2u64.to_le_bytes()));
     }
 }
