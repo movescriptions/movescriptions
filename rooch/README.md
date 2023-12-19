@@ -5,28 +5,62 @@
 1. Install rooch
 
 ```bash
+cargo install --path .
 cargo install --git https://github.com/rooch-network/rooch rooch 
 ```
 
-2. Deply Modules
+2. Start server
+
+```bash
+rooch server start
+```
+
+3. Deply Modules
 
 ```bash
 rooch move publish --named-addresses movescription=default
 ```
 
-3. Deploy MRC20
+4. Deploy MRC20
 
 ```bash
-rooch move run --function default::movescription::deploy_mrc20 --args object:default::movescription::MovescriptionRegistry --args string:move --args u256:21000000 --args u256:1000 --args u64:18
+rooch move run --function default::movescription::deploy_mrc20 --args object:default::movescription::MovescriptionRegistry --args string:move --args u64:2 --args u256:21000000 --args u256:1000 --args u64:18
 ```
 
-3. Mint MRC20
+5. Get PoW input
 
 ```bash
-rooch move run --function default::movescription::mint_mrc20 --args object:default::movescription::MovescriptionRegistry --args string:move --args u256:1000
+rooch move view --function default::movescription::pow_input --args address:default --args string:move --args u256:1000
+```
+```json
+{
+  "vm_status": "Executed",
+  "return_values": [
+    {
+      "value": {
+        "type_tag": "vector<u8>",
+        "value": "0x4c6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810100000000000000"
+      },
+      "decoded_value": "0x6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810100000000000000"
+    }
+  ]
+}
 ```
 
-4. Query state
+6. Calculate PoW
+
+```bash
+movescription pow -i 0x6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810100000000000000 -d 2
+difficulty: 2, hash: 0000caa26c6104ea21c5051188a480b088da8abe87ada55d2281b823886b8608, nonce: 19571, use millis: 12
+```
+
+5. Mint MRC20
+
+```bash
+rooch move run --function default::movescription::mint_mrc20 --args object:default::movescription::MovescriptionRegistry --args string:move --args u256:1000 --args u64:19571
+```
+
+6. Query state
 
 Get the active account address
 
