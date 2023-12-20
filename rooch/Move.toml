@@ -1,5 +1,5 @@
 [package]
-name = "movescription"
+name = "movescriptions"
 version = "0.0.1"
 
 [dependencies]
@@ -11,7 +11,7 @@ RoochFramework = { git = "https://github.com/rooch-network/rooch.git", subdir = 
 std =  "0x1"
 moveos_std =  "0x2"
 rooch_framework =  "0x3"
-movescription = "_"
+movescriptions = "_"
 
 [dev-addresses]
-movescription = "0x42"
+movescriptions = "0x42"

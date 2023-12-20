@@ -18,13 +18,13 @@ rooch server start
 3. Deply Modules
 
 ```bash
-rooch move publish --named-addresses movescription=default
+rooch move publish --named-addresses movescriptions=default
 ```
 
 4. Deploy MRC20
 
 ```bash
-rooch move run --function default::movescription::deploy_mrc20 --args object:default::movescription::MovescriptionRegistry --args string:move --args u64:2 --args u256:21000000 --args u256:1000 --args u64:18
+rooch move run --function default::mrc20::deploy --args object:default::movescription::TickRegistry --args object:default::mrc20::MRC20Store --args string:move --args u64:2 --args u256:21000000 --args u256:1000 --args u64:18
 ```
 
 5. Get PoW input
@@ -39,9 +39,9 @@ rooch move view --function default::movescription::pow_input --args address:defa
     {
       "value": {
         "type_tag": "vector<u8>",
-        "value": "0x4c6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810900000000000000"
+        "value": "0x4c6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810200000000000000"
       },
-      "decoded_value": "0x6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810900000000000000"
+      "decoded_value": "0x6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810200000000000000"
     }
   ]
 }
@@ -50,13 +50,13 @@ rooch move view --function default::movescription::pow_input --args address:defa
 6. Calculate PoW
 
 ```bash
-movescription pow -i 0x6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810900000000000000 -d 2
-difficulty: 2, hash: 0000ce51c2983b9ae51fd7d0a009ad147e365162b02a2c99ccd923ba285eb5a3, nonce: 121245, use millis: 72
+movescription pow -i 0x6d6f7665e8030000000000000000000000000000000000000000000000000000000000005078ae74bac281e65fc446b467a843b186904a1b2d435f367030fc755eef10810200000000000000 -d 2
+Nonce: 100000difficulty: 2, hash: 0000ba3600fc7f2276c11b1c1bf207dc263493a40f4e70d2021784e8652c797c, nonce: 170095, use millis: 101
 ```
 
 Validate the nonce
 ```bash
-rooch move view --function default::movescription::validate_pow --args address:default --args string:move --args u256:1000 --args u64:2 --args u64:121245
+rooch move view --function default::movescription::validate_pow --args address:default --args string:move --args u256:1000 --args u64:2 --args u64:170095
 ```
 ```json
 {
@@ -76,7 +76,7 @@ rooch move view --function default::movescription::validate_pow --args address:d
 5. Mint MRC20
 
 ```bash
-rooch move run --function default::movescription::mint_mrc20 --args object:default::movescription::MovescriptionRegistry --args string:move --args u256:1000 --args u64:121245
+rooch move run --function default::mrc20::mint --args object:default::mrc20::MRC20Store --args string:move --args u64:170095 --args u256:1000 
 ```
 
 6. Query state

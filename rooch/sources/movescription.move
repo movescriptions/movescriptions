@@ -1,6 +1,6 @@
-module movescription::movescription{
+module movescriptions::movescription{
     use std::string::{Self, String};
-    use std::option::{Self, Option};
+    use std::option::Option;
     use std::bcs;
     use std::vector;
     use moveos_std::context::{Self, Context};
@@ -8,6 +8,7 @@ module movescription::movescription{
     use moveos_std::object::{Self, Object, ObjectID};
     use rooch_framework::hash;
     use rooch_framework::account;
+    use movescriptions::util;
 
     const MAX_TICK_LENGTH: u64 = 32;
     const MIN_TICK_LENGTH: u64 = 4;
@@ -15,40 +16,29 @@ module movescription::movescription{
     const ErrorTickLengthInvaid: u64 = 1;
     const ErrorTickAlreadyExists: u64 = 2;
     const ErrorTickNotExists: u64 = 3;
-    const ErrorMintExceedsLimit: u64 = 4;
-    const ErrorMintExceedsMax: u64 = 5;
-    const ErrorInvalidPoW: u64 = 6;
+    const ErrorInvalidPoW: u64 = 4;
 
+    friend movescriptions::mrc20;
+    friend movescriptions::mrc721;
 
-    struct MovescriptionRegistry has key{
-        infos: Table<String, Supply>,
+    struct TickRegistry has key{
+        /// The map of tick to TickInfo object id
+        infos: Table<String, ObjectID>,
     }
 
-    struct MovescriptionInfo<P: store> has key, store {
+    struct TickInfo has key, store {
         /// The Movescription's name, we need to make sure it's unique and case-insensitive
-        /// length >= 4
-        tick: std::string::String,
-        protocol: P,
+        /// length >= 4 && length <= 32
+        tick: String,
         /// The PoW difficulty of the Movescription
         difficulty: u64,
     }
 
     struct Movescription has key, store{
-        tick: std::string::String,
+        tick: String,
         value: u256,
         /// The metadata of the Movescription, it is optional 
         metadata: Option<Metadata>,
-    }
-
-    /// The MRC20 is a protocol like ERC20, BRC20, etc.
-    /// The name is not a good name, but we follow the community's convention
-    struct MRC20 has store, copy{
-        /// The total supply of the MRC20
-        max: u256,
-        /// The limit of per MRC20 mint
-        limit: u256,
-        /// The decimals of the MRC20
-        decimals: u64,
     }
 
     struct Metadata has store, copy, drop {
@@ -58,79 +48,79 @@ module movescription::movescription{
         content: vector<u8>,
     }
 
-    struct Supply has store{
-        info_id: ObjectID,
-        value: u256,
-    }
-
     fun init(ctx: &mut Context){
         let infos = context::new_table(ctx);
-        let registry_obj = context::new_named_object(ctx, MovescriptionRegistry{
+        let registry_obj = context::new_named_object(ctx, TickRegistry{
             infos,
         });
         object::to_shared(registry_obj);
     }
 
-    entry fun deploy_mrc20(ctx: &mut Context, registry_obj: &mut Object<MovescriptionRegistry>, tick: String, difficulty: u64, max: u256, limit: u256, decimals: u64) {
-        let unique_tick = to_lower_case(tick);
+    // === TicnInfo ===
+
+    public fun tick(self: &TickInfo) : String {
+        self.tick
+    }
+
+    public fun difficulty(self: &TickInfo) : u64 {
+        self.difficulty
+    }
+
+    // === Metadata ===
+
+    public(friend) fun new_metadata(content_type: String, content: vector<u8>) : Metadata {
+        Metadata {
+            content_type,
+            content,
+        }
+    }
+    
+    public fun content_type(self: &Metadata) : String {
+        self.content_type
+    }
+
+    public fun content(self: &Metadata) : vector<u8> {
+        self.content
+    }
+
+    public fun get_tick_info(registry_obj: &Object<TickRegistry>, tick: String) : ObjectID{
+        let unique_tick = util::to_lower_case(tick);
+        let registry = object::borrow(registry_obj);
+        assert!(table::contains(&registry.infos, unique_tick), ErrorTickNotExists);
+        *table::borrow(&registry.infos, unique_tick)
+    }
+
+    public(friend) fun deploy(ctx: &mut Context, registry_obj: &mut Object<TickRegistry>, tick: String, difficulty: u64) : Object<TickInfo>{
+        let unique_tick = util::to_lower_case(tick);
         assert!(string::length(&unique_tick) >= MIN_TICK_LENGTH, ErrorTickLengthInvaid);
         assert!(string::length(&unique_tick) <= MAX_TICK_LENGTH, ErrorTickLengthInvaid);
         let registry = object::borrow_mut(registry_obj);
         assert!(!table::contains(&registry.infos, unique_tick), ErrorTickAlreadyExists);
-        let mrc20 = MRC20 {
-            max: max,
-            limit: limit,
-            decimals: decimals,
-        };
         
-        let info = MovescriptionInfo {
-            tick: tick,
-            protocol: mrc20,
+        let info = TickInfo {
+            tick: unique_tick,
             difficulty: difficulty,
         };
         let info_obj = context::new_object(ctx, info);
         let info_id = object::id(&info_obj);
-        object::to_frozen(info_obj);
-        let supply = Supply {
-            info_id: info_id,
-            value: 0,
-        };
-        table::add(&mut registry.infos, unique_tick, supply);
+        table::add(&mut registry.infos, unique_tick, info_id);
+        info_obj
     }
 
-    entry fun mint_mrc20(ctx: &mut Context, registry_obj: &mut Object<MovescriptionRegistry>, tick: String, value: u256, nonce: u64) {
-        let unique_tick = to_lower_case(tick);
-        let sender = context::sender(ctx);
-
-        let registry = object::borrow_mut(registry_obj);
-        assert!(table::contains(&registry.infos, unique_tick), ErrorTickNotExists);
-        let supply = table::borrow_mut(&mut registry.infos, unique_tick);
-
-        let info_obj = context::borrow_object<MovescriptionInfo<MRC20>>(ctx, supply.info_id);
-        let info = object::borrow(info_obj);
-
-        assert!(validate_pow(ctx, sender, unique_tick, value, info.difficulty, nonce), ErrorInvalidPoW);
-        let mrc20 = &info.protocol;
-        assert!(value <= mrc20.limit, ErrorMintExceedsLimit);
-
-        supply.value = supply.value + value;
-
-        assert!(supply.value <= mrc20.max, ErrorMintExceedsMax);
-        
+    public(friend) fun mint(ctx: &mut Context, sender: address, info_obj: &Object<TickInfo>, nonce: u64, value: u256, metadata: Option<Metadata>) : ObjectID{
+       let info = object::borrow(info_obj);
+        assert!(validate_pow(ctx, sender, info.tick, value, info.difficulty, nonce), ErrorInvalidPoW);
         let movescription = Movescription {
-            tick: unique_tick,
+            tick: info.tick,
             value: value,
-            metadata: option::none(),
+            metadata: metadata,
         };
         let movescription_obj = context::new_object(ctx, movescription);
-        
+        let object_id = object::id(&movescription_obj);
         object::transfer(movescription_obj, sender);
+        object_id
     }
-
-    fun to_lower_case(s: String) : String {
-        //TODO
-        s
-    }
+    
 
     public fun validate_pow(ctx: &Context, sender: address, tick: String, value: u256, difficulty: u64, nonce: u64) : bool {
         let data = pow_input(ctx, sender, tick, value);

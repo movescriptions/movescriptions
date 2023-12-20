@@ -27,6 +27,9 @@ pub fn pow(input: &[u8], difficulty: u64) -> ([u8; 32], u64) {
                 }
             }
         }
+        if (nonce % 100000) == 0 {
+            print!("\rNonce: {}", nonce);
+        }
         nonce += 1;
     }
 }
