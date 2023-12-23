@@ -58,7 +58,7 @@
         do_deploy(ctx, registry_obj, store_obj, tick, difficulty, content_type, merkle_root);
     }
 
-    fun do_mint(ctx: &mut Context, store_obj: &mut Object<MRC721Store>, tick: String, nonce: u64, merkle_proof: vector<u8>, index: u64, content: vector<u8>) {
+    fun do_mint(ctx: &mut Context, store_obj: &mut Object<MRC721Store>, tick: String, nonce: u64, merkle_proof: vector<u8>, index: u64, value: u256, content: vector<u8>) {
         let sender = context::sender(ctx);
         let unique_tick = util::to_lower_case(tick);
         let mrc721_store = object::borrow_mut(store_obj);
@@ -68,26 +68,27 @@
 
         assert!(!table::contains(&mrc721.minted_nft, index), ErrorNFTAlreadyMinted);
         let content_hash = hash::sha3_256(content);
-        let leaf = encode_leaf(&index, content_hash);
+        let leaf = encode_leaf(&index, &value, content_hash);
         let proof = util::split_vector(&merkle_proof, 32);
         assert!(merkle_proof::verify(&proof, &mrc721.merkle_root, leaf), ErrorMerkleProofInvalid);
         
         let metadata = movescription::new_metadata(mrc721.content_type, content);
-        let value = 1;
         let nftid = movescription::mint(ctx, sender, &mrc721.tick_info, nonce, value, option::some(metadata));
         table::add(&mut mrc721.minted_nft, index, nftid);
     } 
 
-    entry fun mint(ctx: &mut Context, store_obj: &mut Object<MRC721Store>, tick: String, nonce: u64, merkle_proof: vector<u8>, index: u64, content: vector<u8>) {
-        do_mint(ctx, store_obj, tick, nonce, merkle_proof, index, content);
+    entry fun mint(ctx: &mut Context, store_obj: &mut Object<MRC721Store>, tick: String, nonce: u64, merkle_proof: vector<u8>, index: u64, value: u256, content: vector<u8>) {
+        do_mint(ctx, store_obj, tick, nonce, merkle_proof, index, value, content);
     } 
 
     fun encode_leaf(
         index: &u64,
+        value: &u256,
         content_hash:vector<u8>,
     ): vector<u8> {
         let leaf = vector::empty();
         vector::append(&mut leaf, bcs::to_bytes(index));
+        vector::append(&mut leaf, bcs::to_bytes(value));
         vector::append(&mut leaf, content_hash);
         leaf
     }
