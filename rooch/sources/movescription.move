@@ -165,7 +165,8 @@ module movescriptions::movescription{
 
     fun do_split(ctx: &mut Context, owner: address, movescription_obj: Object<Movescription>, value: u256){
         let movescription = object::remove(movescription_obj);
-        assert!(movescription.value >= value, ErrorSplitValueTooLarge);
+        // We do not support >= here, because we want to make sure the value is not 0
+        assert!(movescription.value > value, ErrorSplitValueTooLarge);
         let first_value = movescription.value - value;
         let second_value = value;
         let first_movescription = Movescription {
