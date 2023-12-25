@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "vite-plugin-node-polyfills": "^0.18.0"
+  }
+}
