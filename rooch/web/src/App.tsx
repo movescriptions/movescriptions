@@ -68,17 +68,23 @@ function App() {
     return result;
   }
 
-  const matchDiffi = (_data: Uint8Array, _diff: number):boolean => {
-    return true
+  const matchDifficulty = (data: Uint8Array, difficulty: number):boolean => {
+    for(let i = 0; i < difficulty; i++) {
+      if(data[i] !== 0) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
-  const searchNonce = async (account: IAccount, tick: string, value: number, diff: number) => {
+  const searchNonce = async (account: IAccount, tick: string, value: number, difficulty: number) => {
     const powInput = await getPowInput(account, tick, value)
 
     let nonce = new Date().getTime()
     while(powInput) {
       const data = hash(appendU64ToUint8Array(hash(powInput), BigInt(nonce)))
-      if (matchDiffi(data, diff)) {
+      if (matchDifficulty(data, difficulty)) {
         return nonce
       }
 
@@ -91,7 +97,7 @@ function App() {
   const handleMint = async (account: IAccount) => {
     setMinting(true)
 
-    const nonce = await searchNonce(account, "move", 1000, 9)
+    const nonce = await searchNonce(account, "move", 1000, 2)
     console.log("found nonce:", nonce);
 
     try {
