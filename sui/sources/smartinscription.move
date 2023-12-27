@@ -220,6 +220,7 @@ module smartinscription::inscription {
         }
     }
 
+    // Warning, check inscription_balance_type before merge.
     public fun merge(
         inscription1: &mut Inscription,
         inscription2: Inscription,
@@ -232,6 +233,7 @@ module smartinscription::inscription {
         object::delete(id);
     }
 
+    // Warning, check inscription_balance_type before burn.
     public fun burn(
         inscription: Inscription,
         ctx: &mut TxContext
