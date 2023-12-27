@@ -3,6 +3,7 @@ module movescriptions::movescription{
     use std::option::Option;
     use std::bcs;
     use std::vector;
+    use std::signer;
     use moveos_std::context::{Self, Context};
     use moveos_std::table::{Self, Table};
     use moveos_std::object::{Self, Object, ObjectID};
@@ -17,6 +18,8 @@ module movescriptions::movescription{
     const ErrorTickAlreadyExists: u64 = 2;
     const ErrorTickNotExists: u64 = 3;
     const ErrorInvalidPoW: u64 = 4;
+    const ErrorMergeTickNotMatch: u64 = 5;
+    const ErrorSplitValueTooLarge: u64 = 6;
 
     friend movescriptions::mrc20;
     friend movescriptions::mrc721;
@@ -83,6 +86,19 @@ module movescriptions::movescription{
         self.content
     }
 
+    // === Movescription ===
+    
+    fun drop(self: Movescription){
+        let Movescription{tick:_, value:_, metadata:_} = self;
+    }
+
+    //TODO make it public
+    fun burn(movescription_obj: Object<Movescription>){
+        //TODO should we reduce the total supply? 
+        let movescription = object::remove(movescription_obj);
+        drop(movescription);
+    }
+
     public fun get_tick_info(registry_obj: &Object<TickRegistry>, tick: String) : ObjectID{
         let unique_tick = util::to_lower_case(tick);
         let registry = object::borrow(registry_obj);
@@ -119,6 +135,61 @@ module movescriptions::movescription{
         let object_id = object::id(&movescription_obj);
         object::transfer(movescription_obj, sender);
         object_id
+    }
+
+
+    fun do_merge(ctx: &mut Context, owner: address, first_movescription_obj: Object<Movescription>, second_movescription_obj: Object<Movescription>){
+        let first_movescription = object::remove(first_movescription_obj);
+        let second_movescription = object::remove(second_movescription_obj);
+        assert!(first_movescription.tick == second_movescription.tick, ErrorMergeTickNotMatch);
+        assert!(first_movescription.metadata == second_movescription.metadata, ErrorMergeTickNotMatch);
+        let merged_value = first_movescription.value + second_movescription.value;
+        let merged_metadata = first_movescription.metadata;
+        let merged_movescription = Movescription {
+            tick: first_movescription.tick,
+            value: merged_value,
+            metadata: merged_metadata,
+        };
+        let merged_movescription_obj = context::new_object(ctx, merged_movescription);
+        object::transfer(merged_movescription_obj, owner);
+        drop(first_movescription);
+        drop(second_movescription);
+    } 
+
+    entry fun merge(ctx: &mut Context, sender: &signer, first_movescription: ObjectID, second_movescription: ObjectID){
+        let first_movescription_obj = context::take_object<Movescription>(ctx, sender, first_movescription);
+        let second_movescription_obj = context::take_object<Movescription>(ctx, sender, second_movescription);
+        let owner = signer::address_of(sender);
+        do_merge(ctx, owner, first_movescription_obj, second_movescription_obj);
+    }
+
+    fun do_split(ctx: &mut Context, owner: address, movescription_obj: Object<Movescription>, value: u256){
+        let movescription = object::remove(movescription_obj);
+        // We do not support >= here, because we want to make sure the value is not 0
+        assert!(movescription.value > value, ErrorSplitValueTooLarge);
+        let first_value = movescription.value - value;
+        let second_value = value;
+        let first_movescription = Movescription {
+            tick: movescription.tick,
+            value: first_value,
+            metadata: movescription.metadata,
+        };
+        let second_movescription = Movescription {
+            tick: movescription.tick,
+            value: second_value,
+            metadata: movescription.metadata,
+        };
+        let first_movescription_obj = context::new_object(ctx, first_movescription);
+        let second_movescription_obj = context::new_object(ctx, second_movescription);
+        object::transfer(first_movescription_obj, owner);
+        object::transfer(second_movescription_obj, owner);
+        drop(movescription);
+    }
+
+    entry fun split(ctx: &mut Context, sender: &signer, movescription: ObjectID, value: u256){
+        let movescription_obj = context::take_object<Movescription>(ctx, sender, movescription);
+        let owner = signer::address_of(sender);
+        do_split(ctx, owner, movescription_obj, value);
     }
     
 
