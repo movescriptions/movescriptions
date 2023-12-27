@@ -38,8 +38,7 @@ module smartinscription::inscription {
     const ENotSameTick: u64 = 10;
     const EBalanceDONE: u64 = 11;
     const ETooHighFee: u64 = 12;
-    const ELockObject: u64 = 13;
-    const EStillMinting: u64 = 14;
+    const EStillMinting: u64 = 13;
 
     // ======== Types =========
     struct Inscription has key, store {
@@ -48,7 +47,6 @@ module smartinscription::inscription {
         tick: String,
         image_url: Option<String>,
         acc: Balance<SUI>,
-        lock: bool,
     }
 
     struct InscriptionBalance<phantom T> has copy, drop, store { }
@@ -174,29 +172,26 @@ module smartinscription::inscription {
     }
 
 
-    public entry fun merge(
+    public fun merge(
         inscription1: &mut Inscription,
         inscription2: Inscription,
     ) {
         assert!(inscription1.tick == inscription2.tick, ENotSameTick);
-        assert!(!inscription2.lock, ELockObject);
 
-        let Inscription { id, amount, tick: _, image_url: _, acc, lock: _ } = inscription2;
+        let Inscription { id, amount, tick: _, image_url: _, acc } = inscription2;
         inscription1.amount = inscription1.amount + amount;
         balance::join<SUI>(&mut inscription1.acc, acc);
         object::delete(id);
     }
 
-    #[lint_allow(self_transfer)]
-    public entry fun burn(
+    public fun burn(
         inscription: Inscription,
         ctx: &mut TxContext
-    ) {
-        assert!(!inscription.lock, ELockObject);
-        let Inscription { id, amount: _, tick: _, image_url: _, acc, lock: _ } = inscription;
+    ): Coin<SUI> {
+        let Inscription { id, amount: _, tick: _, image_url: _, acc } = inscription;
         let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
-        transfer::public_transfer(acc, tx_context::sender(ctx));
         object::delete(id);
+        acc
     }
 
     public fun accept_coin<T>(inscription: &mut Inscription, sent: Receiving<Coin<T>>) {
@@ -237,14 +232,6 @@ module smartinscription::inscription {
         ins
     }
 
-    public fun free(inscription: &mut Inscription) {
-        inscription.lock = false
-    }
-
-    public fun lock(inscription: &mut Inscription) {
-        inscription.lock = true
-    }
-
     public fun clean_mint_record(tick_record: &mut TickRecord, holder: address) {
         assert!(tick_record.remain == 0, EStillMinting);
         table::remove(&mut tick_record.mint_record, holder);
@@ -264,7 +251,6 @@ module smartinscription::inscription {
             tick,
             image_url,
             acc,
-            lock: true,
         }
     }
 
