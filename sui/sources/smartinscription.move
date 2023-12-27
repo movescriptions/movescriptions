@@ -194,6 +194,10 @@ module smartinscription::inscription {
         acc
     }
 
+    public fun inject_sui(inscription: &mut Inscription, receive: Coin<SUI>) {
+        coin::put(&mut inscription.acc, receive);
+    }
+
     public fun accept_coin<T>(inscription: &mut Inscription, sent: Receiving<Coin<T>>) {
         let coin = transfer::public_receive(&mut inscription.id, sent);
         let inscription_balance_type = InscriptionBalance<T>{};
