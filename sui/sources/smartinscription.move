@@ -1,7 +1,7 @@
 module smartinscription::inscription {
     use std::string::{Self, utf8, String};
     use std::option::Option;
-    use sui::object::{Self, UID, ID};
+    use sui::object::{Self, UID};
     use sui::transfer::{Self, Receiving};
     use sui::dynamic_field as df;
     use sui::tx_context::{Self, TxContext};
@@ -11,8 +11,10 @@ module smartinscription::inscription {
     use sui::table::{Self, Table};
     use sui::sui::SUI;
     use sui::clock::{Self, Clock};
+
     use sui::package;
     use sui::display;
+
 
     // ======== Constants =========
     const VERSION: u64 = 1;
@@ -142,10 +144,12 @@ module smartinscription::inscription {
         let fee_coin: Coin<SUI> = coin::split(mint_fee_coin, tick_record.mint_fee, ctx);
         assert!(amount <= tick_record.max_per_mint, EOverMaxPerMint);
         assert!(tick_record.remain > 0, ENotEnoughToMint);
+
         if (!table::contains(&tick_record.mint_record, sender)) {
             table::add(&mut tick_record.mint_record, sender, clock::timestamp_ms(clk) - FIVE_SECONDS_IN_MS);
         };
         let last_mint_time: u64 = *table::borrow(&tick_record.mint_record, sender);
+
         assert!(clock::timestamp_ms(clk) - last_mint_time > FIVE_SECONDS_IN_MS, EMintTooFrequently);
         if (amount > tick_record.remain) {
             amount = tick_record.remain;
@@ -257,6 +261,15 @@ module smartinscription::inscription {
             acc,
             lock: true,
         }
+    }
+
+    public fun amount(inscription: &Inscription): u64 {
+        inscription.amount
+    }
+
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(ctx);
     }
 
 }
