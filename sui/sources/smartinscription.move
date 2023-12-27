@@ -1,7 +1,7 @@
 module smartinscription::inscription {
     use std::string::{Self, utf8, String};
     use std::option::Option;
-    use sui::object::{Self, UID, ID};
+    use sui::object::{Self, UID};
     use sui::transfer::{Self, Receiving};
     use sui::dynamic_field as df;
     use sui::tx_context::{Self, TxContext};
@@ -11,8 +11,6 @@ module smartinscription::inscription {
     use sui::table::{Self, Table};
     use sui::sui::SUI;
     use sui::clock::{Self, Clock};
-    use sui::package;
-    use sui::display;
 
     // ======== Constants =========
     const VERSION: u64 = 1;
@@ -259,4 +257,8 @@ module smartinscription::inscription {
         }
     }
 
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(ctx);
+    }
 }
