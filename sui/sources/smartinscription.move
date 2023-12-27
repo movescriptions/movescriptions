@@ -140,10 +140,12 @@ module smartinscription::inscription {
         let fee_coin: Coin<SUI> = coin::split(mint_fee_coin, tick_record.mint_fee, ctx);
         assert!(amount <= tick_record.max_per_mint, EOverMaxPerMint);
         assert!(tick_record.remain > 0, ENotEnoughToMint);
+        let last_mint_time: u64 = 0;        
         if (!table::contains(&tick_record.mint_record, sender)) {
             table::add(&mut tick_record.mint_record, sender, clock::timestamp_ms(clk) - FIVE_SECONDS_IN_MS);
+        } else {
+            last_mint_time = *table::borrow(&tick_record.mint_record, sender);
         };
-        let last_mint_time: u64 = *table::borrow(&tick_record.mint_record, sender);
         assert!(clock::timestamp_ms(clk) - last_mint_time > FIVE_SECONDS_IN_MS, EMintTooFrequently);
         if (amount > tick_record.remain) {
             amount = tick_record.remain;
@@ -255,6 +257,15 @@ module smartinscription::inscription {
             acc,
             lock: true,
         }
+    }
+
+    // ======== Read Functions =========
+    public fun locked(inscription: &Inscription): bool {
+        inscription.lock
+    }
+
+    public fun amount(inscription: &Inscription): u64 {
+        inscription.amount
     }
 
     #[test_only]
