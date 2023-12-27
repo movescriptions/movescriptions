@@ -145,10 +145,12 @@ module smartinscription::inscription {
         assert!(amount <= tick_record.max_per_mint, EOverMaxPerMint);
         assert!(tick_record.remain > 0, ENotEnoughToMint);
 
+        let last_mint_time: u64 = 0;        
         if (!table::contains(&tick_record.mint_record, sender)) {
             table::add(&mut tick_record.mint_record, sender, clock::timestamp_ms(clk) - FIVE_SECONDS_IN_MS);
+        } else {
+            last_mint_time = *table::borrow(&tick_record.mint_record, sender);
         };
-        let last_mint_time: u64 = *table::borrow(&tick_record.mint_record, sender);
 
         assert!(clock::timestamp_ms(clk) - last_mint_time > FIVE_SECONDS_IN_MS, EMintTooFrequently);
         if (amount > tick_record.remain) {
