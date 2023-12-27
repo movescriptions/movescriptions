@@ -55,11 +55,13 @@ module smartinscription::inscription {
 
     struct DeployRecord has key {
         id: UID,
+        version: u64,
         record: Table<String, address>,
     }
 
     struct TickRecord has key {
         id: UID,
+        version: u64,
         tick: String,
         total_supply: u64,
         max_per_mint: u64,
@@ -86,7 +88,7 @@ module smartinscription::inscription {
 
     // ======== Functions =========
     fun init(ctx: &mut TxContext) {
-        let deploy_record = DeployRecord { id: object::new(ctx), record: table::new(ctx) };
+        let deploy_record = DeployRecord { id: object::new(ctx), version: VERSION, record: table::new(ctx) };
         transfer::share_object(deploy_record);
     }
 
@@ -109,6 +111,7 @@ module smartinscription::inscription {
         assert!(mint_fee <= MAX_MINT_FEE, ETooHighFee);
         let tick_record: TickRecord = TickRecord {
             id: object::new(ctx),
+            version: VERSION,
             tick: tick_str,
             total_supply,
             max_per_mint,
