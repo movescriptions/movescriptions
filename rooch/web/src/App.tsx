@@ -7,7 +7,7 @@ import {
   IAccount,
 } from '@roochnetwork/rooch-sdk'
 
-import { MinerManager, IMinerTask } from './miner'
+import { MinerManager, IMinerTask, IMintResult } from './miner'
 
 const moveScriptionAddress = `${import.meta.env.VITE_MOVE_SCRIPTIONS_ADDRESS}`
 const mrc20PowInputFunc = `${moveScriptionAddress}::movescription::pow_input`
@@ -24,6 +24,7 @@ const minerManager = new MinerManager(1, 0);
 
 function App() {
   const [minting, setMinting] = useState(false);
+  const [progress, setProgress] = useState("");
 
   const getPowInput = async (account: IAccount, tick: string, value: number) => {
     const resp = await client.executeViewFunction(
@@ -56,34 +57,40 @@ function App() {
     const powInput = await getPowInput(account, tick, value)
 
     if (powInput) {
-      const task: IMinerTask = {
-        id: "1",
-        powData: powInput,
-        difficulty: difficulty,
-        nonceStart: 1,
-        nonceEnd: 10000,
-        timestamp: new Date().getTime(),
-        onSuccess: ()=>{
-  
-        },
-        onError: ()=>{
-          
+      return new Promise((resolve, reject) => {
+        const task: IMinerTask = {
+          id: "1",
+          powData: powInput,
+          difficulty: difficulty,
+          timestamp: new Date().getTime(),
+          onSuccess: (result: IMintResult)=>{
+            minerManager.stop()
+            resolve(result);
+          },
+          onError: (err: Error)=>{
+            minerManager.stop()
+            reject(err)
+          },
+          onProgress: (msg: string)=>{
+            setProgress(msg)
+          }
         }
-      }
-  
-      minerManager.addTask(task);
+    
+        minerManager.addTask(task);
+        minerManager.start();
+      });      
     }
   
-    return 0
+    throw new Error('pow input invalid')
   }
 
   const handleMint = async (account: IAccount) => {
     setMinting(true)
 
-    const nonce = await searchNonce(account, "move", 1000, 2)
-    console.log("found nonce:", nonce);
-
     try {
+      const nonce = await searchNonce(account, "move", 1000, 2)
+      console.log("found nonce:", nonce);
+
       const tx = await account.runFunction(mrc20MintFunc, [], [], {
         maxGasAmount: 100000000,
       })
@@ -96,18 +103,35 @@ function App() {
     }
   }
 
+  const handleStop = async () => {
+    setMinting(false)
+    minerManager.stop();
+    console.log("stop mint success!");
+  }
+
   return (
     <>
       <div className="card">
+        {!minting && (
+          <button onClick={() => handleMint(account)}>
+            Mint
+          </button>
+        )}
+
         {minting && (
           <div>
-            Minting...
+            <div>
+              Minting...
+            </div>
+            <div>
+              {progress}
+            </div>
+            <button onClick={() => handleStop()}>
+              Stop
+            </button>
           </div>
         )}
 
-        <button onClick={() => handleMint(account)}>
-          Mint
-        </button>
       </div>
     </>
   )
