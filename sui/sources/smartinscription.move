@@ -294,6 +294,9 @@ module smartinscription::inscription {
         let players_len = vector::length(&players);
         
         let per_player_amount = epoch_amount / players_len;
+        if(per_player_amount == 0){
+            per_player_amount = 1;
+        };
         let real_epoch_amount = 0;
         while (idx < players_len) {
             let player = *vector::borrow(&players, idx);
@@ -305,8 +308,11 @@ module smartinscription::inscription {
             transfer::public_transfer(ins, player);
             idx = idx + 1;
         };
-        
-        tick_record.remain = tick_record.remain - real_epoch_amount;
+        if(tick_record.remain < real_epoch_amount){
+            tick_record.remain = 0;
+        }else{
+            tick_record.remain = tick_record.remain - real_epoch_amount;
+        };
 
         emit(SettleEpoch {
             tick,
