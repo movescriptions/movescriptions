@@ -127,6 +127,7 @@ module smartinscription::inscription {
     // ======== Functions =========
     fun init(otw: INSCRIPTION, ctx: &mut TxContext) {
         let deploy_record = DeployRecord { id: object::new(ctx), version: VERSION, record: table::new(ctx) };
+        do_deploy(&mut deploy_record, b"MOVE", 100_0000_0000, 1704038400*1000, 60*24*15, 1000, b"", ctx);
         transfer::share_object(deploy_record);
         let keys = vector[
             utf8(b"tick"),
