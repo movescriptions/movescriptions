@@ -63,9 +63,11 @@ module smartinscription::test_smartscription {
             let first_inscription = test_scenario::take_from_sender<inscription::Inscription>(scenario);
             assert!(inscription::amount(&first_inscription) == epoch_amount, 1);
 
-            let second_inscription = inscription::split(&mut first_inscription, 100, test_scenario::ctx(scenario));
+            let second_inscription = inscription::do_split(&mut first_inscription, 100, test_scenario::ctx(scenario));
             assert!(inscription::amount(&second_inscription) == 100, 1);
             inscription::merge(&mut first_inscription, second_inscription);
+            //std::debug::print(&epoch_amount);
+            //std::debug::print(&first_inscription);
             assert!(inscription::amount(&first_inscription) == epoch_amount, 1);
             inscription::burn(first_inscription, test_scenario::ctx(scenario));
         };

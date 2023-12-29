@@ -34,7 +34,7 @@ module smartinscription::string_util {
     }
 
     #[test]
-    #[expected_failure(abort_code = 1)]
+    #[expected_failure(location = Self, abort_code = 1)]
     fun test_is_lowercase() {
         let vec = b"aA";
         assert!(is_lowercase(*vector::borrow(&vec,0)),1);
@@ -42,7 +42,7 @@ module smartinscription::string_util {
     }
 
     #[test]
-    #[expected_failure(abort_code = 2)]
+    #[expected_failure(location = Self, abort_code = 2)]
     fun test_is_uppercase() {
         let vec = b"aA";
         assert!(is_uppercase(*vector::borrow(&vec,1)),2);

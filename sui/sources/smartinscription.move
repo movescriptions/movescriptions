@@ -44,6 +44,7 @@ module smartinscription::inscription {
     const EStillMinting: u64 = 13;
     const ENotStarted: u64 = 14;
     const EInvalidEpoch: u64 = 15;
+    const EAttachCoinExists: u64 = 16;
 
     // ======== Types =========
     struct Inscription has key, store {
@@ -51,6 +52,8 @@ module smartinscription::inscription {
         amount: u64,
         tick: String,
         image_url: Option<String>,
+        /// The attachments coin count of the inscription.
+        attach_coin: u64,
         acc: Balance<SUI>,
     }
 
@@ -284,50 +287,70 @@ module smartinscription::inscription {
             amount,
             tick,
             image_url,
+            attach_coin: 0,
             acc: fee_balance,
         }
     }
 
-    // Warning, check inscription_balance_type before merge.
-    public fun merge(
+    public entry fun merge(
         inscription1: &mut Inscription,
         inscription2: Inscription,
     ) {
         assert!(inscription1.tick == inscription2.tick, ENotSameTick);
+        assert!(inscription2.attach_coin == 0, EAttachCoinExists);
 
-        let Inscription { id, amount, tick: _, image_url: _, acc } = inscription2;
+        let Inscription { id, amount, tick: _, attach_coin:_, image_url: _, acc } = inscription2;
         inscription1.amount = inscription1.amount + amount;
         balance::join<SUI>(&mut inscription1.acc, acc);
         object::delete(id);
     }
 
-    // Warning, check inscription_balance_type before burn.
     #[lint_allow(self_transfer)]
     public entry fun burn(
         inscription: Inscription,
         ctx: &mut TxContext
     ) {
-        let Inscription { id, amount: _, tick: _, image_url: _, acc } = inscription;
+        assert!(inscription.attach_coin == 0, EAttachCoinExists);
+        let Inscription { id, amount: _, tick: _, attach_coin:_, image_url: _, acc } = inscription;
         let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
         object::delete(id);
         transfer::public_transfer(acc, tx_context::sender(ctx));
     }
 
-    public fun split(
+    public fun do_split(
         inscription: &mut Inscription,
         amount: u64,
         ctx: &mut TxContext
-    ): Inscription {
+    ) : Inscription {
         assert!(0 < amount && amount < inscription.amount, EInvalidAmount);
         inscription.amount = inscription.amount - amount;
-
+        let fee_balance_amount = balance::value(&inscription.acc);
+        let new_ins_fee_balance = if(fee_balance_amount == 0){
+            balance::zero<SUI>()
+        }else{
+            let new_ins_fee_balance_amount = (fee_balance_amount*amount)/inscription.amount;
+            if(new_ins_fee_balance_amount == 0){
+                new_ins_fee_balance_amount = 1;
+            };
+            balance::split<SUI>(&mut inscription.acc, new_ins_fee_balance_amount)
+        };
         let ins: Inscription = new_inscription(
             amount, 
             inscription.tick,
             inscription.image_url,
-            balance::zero<SUI>(),
+            new_ins_fee_balance,
             ctx);
         ins
+    }
+
+    #[lint_allow(self_transfer)]
+    public entry fun split(
+        inscription: &mut Inscription,
+        amount: u64,
+        ctx: &mut TxContext
+    ) {
+        let ins = do_split(inscription, amount, ctx);
+        transfer::public_transfer(ins, tx_context::sender(ctx));
     }
 
     public fun inject_sui(inscription: &mut Inscription, receive: Coin<SUI>) {
@@ -343,6 +366,7 @@ module smartinscription::inscription {
             let balance: &mut Coin<T> = df::borrow_mut(inscription_uid, inscription_balance_type);
             coin::join(balance, coin);
         } else {
+            inscription.attach_coin = inscription.attach_coin + 1;
             df::add(inscription_uid, inscription_balance_type, coin);
         }
     }
@@ -351,6 +375,7 @@ module smartinscription::inscription {
         let inscription_balance_type = InscriptionBalance<T>{};
         let inscription_uid = &mut inscription.id;
         assert!(df::exists_(inscription_uid, inscription_balance_type), EBalanceDONE);
+        inscription.attach_coin = inscription.attach_coin - 1;
         let return_coin: Coin<T> = df::remove(inscription_uid, inscription_balance_type);
         return_coin
     }
