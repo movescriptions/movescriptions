@@ -14,6 +14,7 @@ module smartinscription::inscription {
 
     use sui::package;
     use sui::display;
+    use smartinscription::string_util::{to_uppercase};
 
 
     // ======== Constants =========
@@ -131,6 +132,7 @@ module smartinscription::inscription {
         image_url: vector<u8>,
         ctx: &mut TxContext
     ) {
+        to_uppercase(&mut tick);
         let tick_str: String = utf8(tick);
         let tick_len: u64 = string::length(&tick_str);
         assert!(MIN_TICK_LENGTH <= tick_len && tick_len <= MAX_TICK_LENGTH, ErrorTickLengthInvaid);
@@ -172,6 +174,7 @@ module smartinscription::inscription {
         ctx: &mut TxContext
     ) {
         let sender: address = tx_context::sender(ctx);
+        to_uppercase(&mut tick);
         let tick_str: String = utf8(tick);
         assert!(tick_record.tick == tick_str, ErrorTickNotExists);  // parallel optimization
         let fee_coin: Coin<SUI> = coin::split(mint_fee_coin, tick_record.mint_fee, ctx);
