@@ -45,6 +45,7 @@ module smartinscription::inscription {
     const ENotStarted: u64 = 14;
     const EInvalidEpoch: u64 = 15;
     const EAttachCoinExists: u64 = 16;
+    const EInvalidStartTime: u64 = 17;
 
     // ======== Types =========
     struct Inscription has key, store {
@@ -154,7 +155,7 @@ module smartinscription::inscription {
         transfer::public_transfer(img_cap, tx_context::sender(ctx));
     }
 
-    public entry fun deploy(
+    fun do_deploy(
         deploy_record: &mut DeployRecord, 
         tick: vector<u8>,
         total_supply: u64,
@@ -198,6 +199,25 @@ module smartinscription::inscription {
             epoch_count,
             mint_fee,
         });
+    }
+
+    public entry fun deploy(
+        deploy_record: &mut DeployRecord, 
+        tick: vector<u8>,
+        total_supply: u64,
+        start_time_ms: u64,
+        epoch_count: u64,
+        mint_fee: u64,
+        image_url: vector<u8>,
+        clk: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let now_ms = clock::timestamp_ms(clk);
+        if(start_time_ms == 0){
+            start_time_ms = now_ms;
+        };
+        assert!(start_time_ms >= now_ms, EInvalidStartTime); 
+        do_deploy(deploy_record, tick, total_supply, start_time_ms, epoch_count, mint_fee, image_url, ctx);
     }
 
     #[lint_allow(self_transfer)]
@@ -428,13 +448,21 @@ module smartinscription::inscription {
         inscription.tick = tick_record.tick;
     }
 
-    // ======== Read Functions =========
+    // ======== Inscription Read Functions =========
     public fun amount(inscription: &Inscription): u64 {
         inscription.amount
     }
 
     public fun tick(inscription: &Inscription): String {
         inscription.tick
+    }
+
+    public fun attach_coin(inscription: &Inscription): u64 {
+        inscription.attach_coin
+    }
+
+    public fun acc(inscription: &Inscription): u64 {
+        balance::value(&inscription.acc)
     }
 
     // ======== Constants functions =========
