@@ -24,7 +24,7 @@ module smartinscription::inscription {
     //const MAX_MINT_TIMES: u64 = 100_000_000;
     //const MIN_MINT_TIMES: u64 = 10_000;
     const MAX_MINT_FEE: u64 = 10_000_000_000;
-    const EPOCH_MILLISECONDS: u64 = 60 * 1000;
+    const EPOCH_DURATION_MS: u64 = 60 * 1000;
     const MIN_EPOCHS: u64 = 60*24;
 
     // ======== Errors =========
@@ -205,7 +205,7 @@ module smartinscription::inscription {
                 balance::join(last_fee_balance, fee_balance);
             };
             // if the epoch is over, we need to settle it and start a new epoch
-            if(epoch_record.start_time_ms + EPOCH_MILLISECONDS < now_ms){
+            if(epoch_record.start_time_ms + EPOCH_DURATION_MS < now_ms){
                 settlement(tick_record, current_epoch, sender,  now_ms, ctx);
             };
         }else{
@@ -299,14 +299,15 @@ module smartinscription::inscription {
     }
 
     // Warning, check inscription_balance_type before burn.
-    public fun burn(
+    #[lint_allow(self_transfer)]
+    public entry fun burn(
         inscription: Inscription,
         ctx: &mut TxContext
-    ): Coin<SUI> {
+    ) {
         let Inscription { id, amount: _, tick: _, image_url: _, acc } = inscription;
         let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
         object::delete(id);
-        acc
+        transfer::public_transfer(acc, tx_context::sender(ctx));
     }
 
     public fun split(
@@ -373,6 +374,16 @@ module smartinscription::inscription {
 
     public fun tick(inscription: &Inscription): String {
         inscription.tick
+    }
+
+    // ======== Constants functions =========
+
+    public fun epoch_duration_ms(): u64 {
+        EPOCH_DURATION_MS
+    }
+
+    public fun min_epochs(): u64 {
+        MIN_EPOCHS
     }
 
     #[test_only]
