@@ -1,6 +1,7 @@
 module smartinscription::inscription {
     use std::string::{Self, utf8, String};
     use std::option::Option;
+    use std::vector;
     use sui::object::{Self, UID};
     use sui::transfer::{Self, Receiving};
     use sui::dynamic_field as df;
@@ -11,7 +12,6 @@ module smartinscription::inscription {
     use sui::table::{Self, Table};
     use sui::sui::SUI;
     use sui::clock::{Self, Clock};
-
     use sui::package;
     use sui::display;
     use smartinscription::string_util::{to_uppercase};
@@ -19,27 +19,31 @@ module smartinscription::inscription {
 
     // ======== Constants =========
     const VERSION: u64 = 1;
-    const FIVE_SECONDS_IN_MS: u64 = 5_000;
+    //const FIVE_SECONDS_IN_MS: u64 = 5_000;
     const MAX_TICK_LENGTH: u64 = 32;
     const MIN_TICK_LENGTH: u64 = 4;
-    const MAX_MINT_TIMES: u64 = 100_000_000;
-    const MIN_MINT_TIMES: u64 = 10_000;
+    //const MAX_MINT_TIMES: u64 = 100_000_000;
+    //const MIN_MINT_TIMES: u64 = 10_000;
     const MAX_MINT_FEE: u64 = 10_000_000_000;
+    const EPOCH_DURATION_MS: u64 = 60 * 1000;
+    const MIN_EPOCHS: u64 = 60*24;
 
     // ======== Errors =========
     const ErrorTickLengthInvaid: u64 = 1;
     const ErrorTickAlreadyExists: u64 = 2;
     const ErrorTickNotExists: u64 = 3;
     const ENotEnoughSupply: u64 = 4;
-    const EInappropriateMintTimes: u64 = 5;
-    const EOverMaxPerMint: u64 = 6;
+    //const EInappropriateMintTimes: u64 = 5;
+    //const EOverMaxPerMint: u64 = 6;
     const ENotEnoughToMint: u64 = 7;
-    const EMintTooFrequently: u64 = 8;
+    //const EMintTooFrequently: u64 = 8;
     const EInvalidAmount: u64 = 9;
     const ENotSameTick: u64 = 10;
     const EBalanceDONE: u64 = 11;
     const ETooHighFee: u64 = 12;
     const EStillMinting: u64 = 13;
+    const ENotStarted: u64 = 14;
+    const EInvalidEpoch: u64 = 15;
 
     // ======== Types =========
     struct Inscription has key, store {
@@ -61,16 +65,25 @@ module smartinscription::inscription {
         record: Table<String, address>,
     }
 
+    struct EpochRecord has store {
+        epoch: u64,
+        start_time_ms: u64,
+        players: vector<address>,
+        mint_fees: Table<address, Balance<SUI>>,
+    }
+
     struct TickRecord has key {
         id: UID,
         version: u64,
         tick: String,
         total_supply: u64,
-        max_per_mint: u64,
+        start_time_ms: u64,
+        epoch_count: u64,
+        current_epoch: u64,
         remain: u64,
         mint_fee: u64,
         image_url: Option<String>,
-        mint_record: Table<address, u64>,
+        epoch_records: Table<u64, EpochRecord>,
     }
 
     struct ImgCap has key, store {
@@ -82,14 +95,12 @@ module smartinscription::inscription {
         deployer: address,
         tick: String,
         total_supply: u64,
-        max_per_mint: u64,
         mint_fee: u64,
     }
 
     struct MintTick has copy, drop {
         sender: address,
         tick: String,
-        amount: u64,
     }
 
     // ======== Functions =========
@@ -127,7 +138,8 @@ module smartinscription::inscription {
         deploy_record: &mut DeployRecord, 
         tick: vector<u8>,
         total_supply: u64,
-        max_per_mint: u64,
+        start_time_ms: u64,
+        epoch_count: u64,
         mint_fee: u64,
         image_url: vector<u8>,
         ctx: &mut TxContext
@@ -137,20 +149,23 @@ module smartinscription::inscription {
         let tick_len: u64 = string::length(&tick_str);
         assert!(MIN_TICK_LENGTH <= tick_len && tick_len <= MAX_TICK_LENGTH, ErrorTickLengthInvaid);
         assert!(!table::contains(&deploy_record.record, tick_str), ErrorTickAlreadyExists);
-        assert!(max_per_mint <= total_supply, ENotEnoughSupply);
-        let mint_times: u64 = total_supply / max_per_mint;
-        assert!(MIN_MINT_TIMES <= mint_times && mint_times <= MAX_MINT_TIMES, EInappropriateMintTimes);
+        assert!(total_supply > 0, ENotEnoughSupply);
+        assert!(epoch_count >= MIN_EPOCHS, EInvalidEpoch);
+        
+        //TODO should we limit the max mint fee?
         assert!(mint_fee <= MAX_MINT_FEE, ETooHighFee);
         let tick_record: TickRecord = TickRecord {
             id: object::new(ctx),
             version: VERSION,
             tick: tick_str,
             total_supply,
-            max_per_mint,
+            start_time_ms,
+            epoch_count,
+            current_epoch: 0,
             remain: total_supply,
             mint_fee,
             image_url: string::try_utf8(image_url),
-            mint_record: table::new(ctx)
+            epoch_records: table::new(ctx)
         };
         let tk_record_address: address = object::id_address(&tick_record);
         table::add(&mut deploy_record.record, tick_str, tk_record_address);
@@ -159,7 +174,6 @@ module smartinscription::inscription {
             deployer: tx_context::sender(ctx),
             tick: tick_str,
             total_supply,
-            max_per_mint,
             mint_fee,
         });
     }
@@ -168,7 +182,6 @@ module smartinscription::inscription {
     public entry fun mint(
         tick_record: &mut TickRecord,
         tick: vector<u8>,
-        amount: u64,
         mint_fee_coin: &mut Coin<SUI>,
         clk: &Clock,
         ctx: &mut TxContext
@@ -178,48 +191,100 @@ module smartinscription::inscription {
         let tick_str: String = utf8(tick);
         assert!(tick_record.tick == tick_str, ErrorTickNotExists);  // parallel optimization
         let fee_coin: Coin<SUI> = coin::split(mint_fee_coin, tick_record.mint_fee, ctx);
-        assert!(amount <= tick_record.max_per_mint, EOverMaxPerMint);
         assert!(tick_record.remain > 0, ENotEnoughToMint);
+        let now_ms = clock::timestamp_ms(clk);
+        assert!(now_ms >= tick_record.start_time_ms, ENotStarted);
 
-        let last_mint_time: u64 = 0;        
-        if (!table::contains(&tick_record.mint_record, sender)) {
-            table::add(&mut tick_record.mint_record, sender, clock::timestamp_ms(clk) - FIVE_SECONDS_IN_MS);
-        } else {
-            last_mint_time = *table::borrow(&tick_record.mint_record, sender);
+        let fee_balance: Balance<SUI> = coin::into_balance<SUI>(fee_coin);
+
+        let current_epoch = tick_record.current_epoch;
+        if (table::contains(&tick_record.epoch_records, current_epoch)){
+            let epoch_record: &mut EpochRecord = table::borrow_mut(&mut tick_record.epoch_records, current_epoch);
+            if (!table::contains(&epoch_record.mint_fees, sender)) {
+                vector::push_back(&mut epoch_record.players, sender);
+                table::add(&mut epoch_record.mint_fees, sender, fee_balance);
+            } else {
+                let last_fee_balance: &mut Balance<SUI> = table::borrow_mut(&mut epoch_record.mint_fees, sender);
+                balance::join(last_fee_balance, fee_balance);
+            };
+            // if the epoch is over, we need to settle it and start a new epoch
+            if(epoch_record.start_time_ms + EPOCH_DURATION_MS < now_ms){
+                settlement(tick_record, current_epoch, sender,  now_ms, ctx);
+            };
+        }else{
+            let epoch_record = new_epoch_record(current_epoch, now_ms, sender, fee_balance, ctx);
+            table::add(&mut tick_record.epoch_records, current_epoch, epoch_record);
         };
 
-        assert!(clock::timestamp_ms(clk) - last_mint_time > FIVE_SECONDS_IN_MS, EMintTooFrequently);
-        if (amount > tick_record.remain) {
-            amount = tick_record.remain;
-        };
-        tick_record.remain = tick_record.remain - amount;
-
-        let ins: Inscription = new_inscription(
-            amount, tick_str, tick_record.image_url, fee_coin, ctx
-        );
-
-        transfer::public_transfer(ins, sender);
         emit(MintTick {
             sender: sender,
             tick: tick_str,
-            amount,
         });
+    }
+
+    fun new_epoch_record(epoch: u64, now_ms: u64, sender: address, fee_balance: Balance<SUI>, ctx: &mut TxContext) : EpochRecord{
+        let mint_fees = table::new(ctx);
+        table::add(&mut mint_fees, sender, fee_balance);
+        EpochRecord {
+            epoch,
+            start_time_ms: now_ms,
+            players: vector[sender],
+            mint_fees,
+        }
+    }
+
+    fun settlement(tick_record: &mut TickRecord, epoch: u64, settle_user: address, now_ms: u64, ctx: &mut TxContext) {
+        let tick_str = tick_record.tick;
+        let epoch_record: &mut EpochRecord = table::borrow_mut(&mut tick_record.epoch_records, epoch);
+        let epoch_amount = tick_record.total_supply / tick_record.epoch_count;
+        
+        if (epoch_amount > tick_record.remain) {
+            epoch_amount = tick_record.remain;
+        };
+        
+        let players = epoch_record.players;
+        let idx = 0;
+        let players_len = vector::length(&players);
+        
+        let per_player_amount = epoch_amount / players_len;
+        let real_epoch_amount = 0;
+        while (idx < players_len) {
+            let player = *vector::borrow(&players, idx);
+            let fee_balance: Balance<SUI> = table::remove(&mut epoch_record.mint_fees, player);
+            let ins: Inscription = new_inscription(
+                per_player_amount, tick_str, tick_record.image_url, fee_balance, ctx
+            );
+            real_epoch_amount = real_epoch_amount + per_player_amount;
+            transfer::public_transfer(ins, player);
+            idx = idx + 1;
+        };
+        
+        tick_record.remain = tick_record.remain - real_epoch_amount;
+
+        if (tick_record.remain != 0) {
+            //start a new epoch
+            let new_epoch = epoch + 1;
+            // the settle_user is the first player in the new epoch, but the mint_fee belongs to the last epoch
+            // it means the settle_user can free mint a new inscription as a reward
+            let epoch_record = new_epoch_record(new_epoch, now_ms, settle_user, balance::zero<SUI>(), ctx);
+            table::add(&mut tick_record.epoch_records, new_epoch, epoch_record);
+            tick_record.current_epoch = new_epoch;
+        };
     }
 
     fun new_inscription(
         amount: u64,
         tick: String,
         image_url: Option<String>,
-        fee_coin: Coin<SUI>,
+        fee_balance: Balance<SUI>,
         ctx: &mut TxContext
     ): Inscription {
-        let acc: Balance<SUI> = coin::into_balance<SUI>(fee_coin);
         Inscription {
             id: object::new(ctx),
             amount,
             tick,
             image_url,
-            acc,
+            acc: fee_balance,
         }
     }
 
@@ -237,14 +302,15 @@ module smartinscription::inscription {
     }
 
     // Warning, check inscription_balance_type before burn.
-    public fun burn(
+    #[lint_allow(self_transfer)]
+    public entry fun burn(
         inscription: Inscription,
         ctx: &mut TxContext
-    ): Coin<SUI> {
+    ) {
         let Inscription { id, amount: _, tick: _, image_url: _, acc } = inscription;
         let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
         object::delete(id);
-        acc
+        transfer::public_transfer(acc, tx_context::sender(ctx));
     }
 
     public fun split(
@@ -259,7 +325,7 @@ module smartinscription::inscription {
             amount, 
             inscription.tick,
             inscription.image_url,
-            coin::zero<SUI>(ctx),
+            balance::zero<SUI>(),
             ctx);
         ins
     }
@@ -289,9 +355,10 @@ module smartinscription::inscription {
         return_coin
     }
 
-    public fun clean_mint_record(tick_record: &mut TickRecord, holder: address) {
+    public fun clean_epoch_records(tick_record: &mut TickRecord, _holder: address) {
         assert!(tick_record.remain == 0, EStillMinting);
-        table::remove(&mut tick_record.mint_record, holder);
+        //TODO
+        //table::remove(&mut tick_record.epoch_records, holder);
     }
 
     public entry fun set_image_url(_: &ImgCap, tick_record: &mut TickRecord, image_url: vector<u8>) {
@@ -312,9 +379,19 @@ module smartinscription::inscription {
         inscription.tick
     }
 
+    // ======== Constants functions =========
+
+    public fun epoch_duration_ms(): u64 {
+        EPOCH_DURATION_MS
+    }
+
+    public fun min_epochs(): u64 {
+        MIN_EPOCHS
+    }
+
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
-        init(ctx);
+        init(INSCRIPTION{}, ctx);
     }
 
 }
