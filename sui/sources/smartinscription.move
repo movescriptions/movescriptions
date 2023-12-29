@@ -98,12 +98,29 @@ module smartinscription::inscription {
         deployer: address,
         tick: String,
         total_supply: u64,
+        start_time_ms: u64,
+        epoch_count: u64,
         mint_fee: u64,
     }
 
     struct MintTick has copy, drop {
         sender: address,
         tick: String,
+    }
+
+    struct NewEpoch has copy, drop {
+        tick: String,
+        epoch: u64,
+        start_time_ms: u64,
+    }
+
+    struct SettleEpoch has copy, drop {
+        tick: String,
+        epoch: u64,
+        settle_user: address,
+        settle_time_ms: u64,
+        palyers_count: u64,
+        epoch_amount: u64,
     }
 
     // ======== Functions =========
@@ -177,6 +194,8 @@ module smartinscription::inscription {
             deployer: tx_context::sender(ctx),
             tick: tick_str,
             total_supply,
+            start_time_ms,
+            epoch_count,
             mint_fee,
         });
     }
@@ -215,7 +234,7 @@ module smartinscription::inscription {
                 settlement(tick_record, current_epoch, sender,  now_ms, ctx);
             };
         }else{
-            let epoch_record = new_epoch_record(current_epoch, now_ms, sender, fee_balance, ctx);
+            let epoch_record = new_epoch_record(tick_str, current_epoch, now_ms, sender, fee_balance, ctx);
             table::add(&mut tick_record.epoch_records, current_epoch, epoch_record);
         };
 
@@ -225,9 +244,14 @@ module smartinscription::inscription {
         });
     }
 
-    fun new_epoch_record(epoch: u64, now_ms: u64, sender: address, fee_balance: Balance<SUI>, ctx: &mut TxContext) : EpochRecord{
+    fun new_epoch_record(tick: String, epoch: u64, now_ms: u64, sender: address, fee_balance: Balance<SUI>, ctx: &mut TxContext) : EpochRecord{
         let mint_fees = table::new(ctx);
         table::add(&mut mint_fees, sender, fee_balance);
+        emit(NewEpoch {
+            tick,
+            epoch,
+            start_time_ms: now_ms,
+        });
         EpochRecord {
             epoch,
             start_time_ms: now_ms,
@@ -237,7 +261,7 @@ module smartinscription::inscription {
     }
 
     fun settlement(tick_record: &mut TickRecord, epoch: u64, settle_user: address, now_ms: u64, ctx: &mut TxContext) {
-        let tick_str = tick_record.tick;
+        let tick = tick_record.tick;
         let epoch_record: &mut EpochRecord = table::borrow_mut(&mut tick_record.epoch_records, epoch);
         let epoch_amount = tick_record.total_supply / tick_record.epoch_count;
         
@@ -255,7 +279,7 @@ module smartinscription::inscription {
             let player = *vector::borrow(&players, idx);
             let fee_balance: Balance<SUI> = table::remove(&mut epoch_record.mint_fees, player);
             let ins: Inscription = new_inscription(
-                per_player_amount, tick_str, tick_record.image_url, fee_balance, ctx
+                per_player_amount, tick, tick_record.image_url, fee_balance, ctx
             );
             real_epoch_amount = real_epoch_amount + per_player_amount;
             transfer::public_transfer(ins, player);
@@ -264,12 +288,21 @@ module smartinscription::inscription {
         
         tick_record.remain = tick_record.remain - real_epoch_amount;
 
+        emit(SettleEpoch {
+            tick,
+            epoch,
+            settle_user,
+            settle_time_ms: now_ms,
+            palyers_count: players_len,
+            epoch_amount: real_epoch_amount,
+        });
+
         if (tick_record.remain != 0) {
             //start a new epoch
             let new_epoch = epoch + 1;
             // the settle_user is the first player in the new epoch, but the mint_fee belongs to the last epoch
             // it means the settle_user can free mint a new inscription as a reward
-            let epoch_record = new_epoch_record(new_epoch, now_ms, settle_user, balance::zero<SUI>(), ctx);
+            let epoch_record = new_epoch_record(tick, new_epoch, now_ms, settle_user, balance::zero<SUI>(), ctx);
             table::add(&mut tick_record.epoch_records, new_epoch, epoch_record);
             tick_record.current_epoch = new_epoch;
         };
