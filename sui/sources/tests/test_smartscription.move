@@ -51,6 +51,7 @@ module smartinscription::test_smartscription {
 
         test_scenario::next_tx(scenario, admin);
         {
+            let test_tick_record = test_scenario::take_shared<inscription::TickRecord>(scenario);
             let first_inscription = test_scenario::take_from_sender<inscription::Inscription>(scenario);
             assert!(inscription::amount(&first_inscription) == epoch_amount, 1);
 
@@ -60,7 +61,8 @@ module smartinscription::test_smartscription {
             //std::debug::print(&epoch_amount);
             //std::debug::print(&first_inscription);
             assert!(inscription::amount(&first_inscription) == epoch_amount, 1);
-            inscription::burn(first_inscription, test_scenario::ctx(scenario));
+            inscription::burn(&mut test_tick_record, first_inscription, test_scenario::ctx(scenario));
+            test_scenario::return_shared(test_tick_record);
         };
 
         // test mint by transfer
