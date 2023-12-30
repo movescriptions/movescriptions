@@ -35,7 +35,7 @@ module smartinscription::test_smartscription {
         test_scenario::next_tx(scenario, admin);
         {
             let deploy_record = test_scenario::take_shared<inscription::DeployRecord>(scenario);
-            inscription::deploy(&mut deploy_record, b"test", total_supply, start_time_ms, epoch_count, 1000, b"", &c, test_scenario::ctx(scenario));
+            inscription::deploy(&mut deploy_record, b"test", total_supply, start_time_ms, epoch_count, 1000, &c, test_scenario::ctx(scenario));
             test_scenario::return_shared(deploy_record);
         };
 
