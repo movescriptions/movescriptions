@@ -26,7 +26,7 @@ module smartinscription::inscription {
     //const MIN_MINT_TIMES: u64 = 10_000;
     const MAX_MINT_FEE: u64 = 10_000_000_000;
     const EPOCH_DURATION_MS: u64 = 60 * 1000;
-    const MIN_EPOCHS: u64 = 60*24;
+    const MIN_EPOCHS: u64 = 60*2;
 
     // ======== Errors =========
     const ErrorTickLengthInvaid: u64 = 1;
@@ -74,8 +74,6 @@ module smartinscription::inscription {
         start_time_ms: u64,
         players: vector<address>,
         mint_fees: Table<address, Balance<SUI>>,
-        player_transactions: Table<address, u64>,
-        player_amounts: Table<address, u64>,
     }
 
     struct TickRecord has key {
@@ -317,8 +315,6 @@ module smartinscription::inscription {
             start_time_ms: now_ms,
             players: vector[sender],
             mint_fees,
-            player_transactions: table::new(ctx),
-            player_amounts: table::new(ctx),
         }
     }
 
@@ -339,28 +335,25 @@ module smartinscription::inscription {
         if (per_player_amount == 0) {
             per_player_amount = 1;
         };
-        let real_epoch_amount = 0;
         while (idx < players_len) {
             let player = *vector::borrow(&players, idx);
             let fee_balance: Balance<SUI> = table::remove(&mut epoch_record.mint_fees, player);
-            let ins: Inscription = new_inscription(
+            if (tick_record.remain > 0) {
+                let ins: Inscription = new_inscription(
                 per_player_amount, tick, tick_record.image_url, fee_balance, ctx
-            );
-            real_epoch_amount = real_epoch_amount + per_player_amount;
-            transfer::public_transfer(ins, player);
+                );
+                transfer::public_transfer(ins, player);
+                tick_record.remain = tick_record.remain - per_player_amount;
+                tick_record.current_supply = tick_record.current_supply + per_player_amount;
+            }else{
+                // if the remain is 0, we should return the fee_balance to the player
+                transfer::public_transfer(coin::from_balance<SUI>(fee_balance, ctx), player);
+            };
             idx = idx + 1;
         };
         // The mint_fees should be empty, this should not happen, add assert for debug
         // We can remove this assert after we are sure there is no bug
         assert!(table::is_empty(&epoch_record.mint_fees), 0);
-
-        if(tick_record.remain < real_epoch_amount){
-            tick_record.remain = 0;
-        }else{
-            tick_record.remain = tick_record.remain - real_epoch_amount;
-        };
-
-        tick_record.current_supply = tick_record.current_supply + real_epoch_amount;
 
         emit(SettleEpoch {
             tick,
@@ -368,7 +361,7 @@ module smartinscription::inscription {
             settle_user,
             settle_time_ms: now_ms,
             palyers_count: players_len,
-            epoch_amount: real_epoch_amount,
+            epoch_amount,
         });
 
         if (tick_record.remain != 0) {
@@ -529,6 +522,39 @@ module smartinscription::inscription {
 
     public fun acc(inscription: &Inscription): u64 {
         balance::value(&inscription.acc)
+    }
+
+    // ======== TickRecord Read Functions =========
+    public fun tick_record_total_supply(tick_record: &TickRecord): u64 {
+        tick_record.total_supply
+    }
+
+    public fun tick_record_start_time_ms(tick_record: &TickRecord): u64 {
+        tick_record.start_time_ms
+    }
+
+    public fun tick_record_epoch_count(tick_record: &TickRecord): u64 {
+        tick_record.epoch_count
+    }
+
+    public fun tick_record_current_epoch(tick_record: &TickRecord): u64 {
+        tick_record.current_epoch
+    }
+
+    public fun tick_record_remain(tick_record: &TickRecord): u64 {
+        tick_record.remain
+    }
+
+    public fun tick_record_mint_fee(tick_record: &TickRecord): u64 {
+        tick_record.mint_fee
+    }
+
+    public fun tick_record_current_supply(tick_record: &TickRecord): u64 {
+        tick_record.current_supply
+    }
+
+    public fun tick_record_total_transactions(tick_record: &TickRecord): u64 {
+        tick_record.total_transactions
     }
 
     // ======== Constants functions =========
