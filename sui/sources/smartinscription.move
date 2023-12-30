@@ -1,5 +1,5 @@
 module smartinscription::inscription {
-    use std::string::{Self, utf8, String};
+    use std::ascii::{Self, string, String};
     use std::option::Option;
     use std::vector;
     use sui::object::{Self, UID};
@@ -52,7 +52,7 @@ module smartinscription::inscription {
         id: UID,
         amount: u64,
         tick: String,
-        image_url: Option<String>,
+        image_url: Option<std::string::String>,
         /// The attachments coin count of the inscription.
         attach_coin: u64,
         acc: Balance<SUI>,
@@ -74,6 +74,8 @@ module smartinscription::inscription {
         start_time_ms: u64,
         players: vector<address>,
         mint_fees: Table<address, Balance<SUI>>,
+        player_transactions: Table<address, u64>,
+        player_amounts: Table<address, u64>,
     }
 
     struct TickRecord has key {
@@ -86,7 +88,7 @@ module smartinscription::inscription {
         current_epoch: u64,
         remain: u64,
         mint_fee: u64,
-        image_url: Option<String>,
+        image_url: Option<std::string::String>,
         epoch_records: Table<u64, EpochRecord>,
         current_supply: u64,
         total_transactions: u64,
@@ -129,22 +131,22 @@ module smartinscription::inscription {
     // ======== Functions =========
     fun init(otw: INSCRIPTION, ctx: &mut TxContext) {
         let deploy_record = DeployRecord { id: object::new(ctx), version: VERSION, record: table::new(ctx) };
-        do_deploy(&mut deploy_record, b"MOVE", 100_0000_0000, 1704038400*1000, 60*24*15, 1000, b"", ctx);
+        do_deploy(&mut deploy_record, b"MOVE", 100_0000_0000, 1704038400*1000, 60*24*15, 100000000, b"", ctx);
         transfer::share_object(deploy_record);
         let keys = vector[
-            utf8(b"tick"),
-            utf8(b"amount"),
-            utf8(b"image_url"),
-            utf8(b"description"),
-            utf8(b"project_url"),
+            std::string::utf8(b"tick"),
+            std::string::utf8(b"amount"),
+            std::string::utf8(b"image_url"),
+            std::string::utf8(b"description"),
+            std::string::utf8(b"project_url"),
         ];
 
         let values = vector[
-            utf8(b"{tick}"),
-            utf8(b"{amount}"),
-            utf8(b"{image_url}"),
-            utf8(b"MoveInscription of the Sui ecosystem!"),
-            utf8(b"https://"),
+            std::string::utf8(b"{tick}"),
+            std::string::utf8(b"{amount}"),
+            std::string::utf8(b"{image_url}"),
+            std::string::utf8(b"MoveInscription of the Sui ecosystem!"),
+            std::string::utf8(b"https://"),
         ];
         let publisher = package::claim(otw, ctx);
         let display = display::new_with_fields<Inscription>(
@@ -169,8 +171,8 @@ module smartinscription::inscription {
         ctx: &mut TxContext
     ) {
         to_uppercase(&mut tick);
-        let tick_str: String = utf8(tick);
-        let tick_len: u64 = string::length(&tick_str);
+        let tick_str: String = string(tick);
+        let tick_len: u64 = ascii::length(&tick_str);
         assert!(MIN_TICK_LENGTH <= tick_len && tick_len <= MAX_TICK_LENGTH, ErrorTickLengthInvaid);
         assert!(!table::contains(&deploy_record.record, tick_str), ErrorTickAlreadyExists);
         assert!(total_supply > MIN_EPOCHS, ENotEnoughSupply);
@@ -188,7 +190,7 @@ module smartinscription::inscription {
             current_epoch: 0,
             remain: total_supply,
             mint_fee,
-            image_url: string::try_utf8(image_url),
+            image_url: std::string::try_utf8(image_url),
             epoch_records: table::new(ctx),
             current_supply: 0,
             total_transactions: 0,
@@ -287,14 +289,14 @@ module smartinscription::inscription {
         ctx: &mut TxContext
     ) {
         to_uppercase(&mut tick);
-        let tick_str: String = utf8(tick);
+        let tick_str: String = string(tick);
         assert!(tick_record.tick == tick_str, ErrorTickNotExists);  // parallel optimization
         do_mint(tick_record, fee_coin, clk, ctx);
     }
 
     /// Mint by transfer SUI to the TickRecord Object
     public fun mint_by_transfer(tick_record: &mut TickRecord, sent: Receiving<Coin<SUI>>, ctx: &mut TxContext) {
-        std::debug::print(&utf8(b"mint_by_transfer"));
+        std::debug::print(&string(b"mint_by_transfer"));
         assert!(tick_record.remain > 0, ENotEnoughToMint);
         let sender: address = tx_context::sender(ctx); 
         let coin = transfer::public_receive(&mut tick_record.id, sent);
@@ -320,6 +322,8 @@ module smartinscription::inscription {
             start_time_ms: now_ms,
             players: vector[sender],
             mint_fees,
+            player_transactions: table::new(ctx),
+            player_amounts: table::new(ctx),
         }
     }
 
@@ -386,7 +390,7 @@ module smartinscription::inscription {
     fun new_inscription(
         amount: u64,
         tick: String,
-        image_url: Option<String>,
+        image_url: Option<std::string::String>,
         fee_balance: Balance<SUI>,
         ctx: &mut TxContext
     ): Inscription {
@@ -506,7 +510,7 @@ module smartinscription::inscription {
     }
 
     public entry fun set_image_url(_: &ImgCap, tick_record: &mut TickRecord, image_url: vector<u8>) {
-        tick_record.image_url = string::try_utf8(image_url);
+        tick_record.image_url = std::string::try_utf8(image_url);
     }
 
     public entry fun update_image_url(tick_record: &TickRecord, inscription: &mut Inscription) {
