@@ -1,7 +1,8 @@
 module smartinscription::movescription {
     use std::ascii::{Self, string, String};
     use std::vector;
-    use sui::object::{Self, UID};
+    use std::option::{Self, Option};
+    use sui::object::{Self, UID, ID};
     use sui::transfer::{Self, Receiving};
     use sui::dynamic_field as df;
     use sui::tx_context::{Self, TxContext};
@@ -19,12 +20,9 @@ module smartinscription::movescription {
 
     // ======== Constants =========
     const VERSION: u64 = 1;
-    //const FIVE_SECONDS_IN_MS: u64 = 5_000;
     const MAX_TICK_LENGTH: u64 = 32;
     const MIN_TICK_LENGTH: u64 = 4;
-    //const MAX_MINT_TIMES: u64 = 100_000_000;
-    //const MIN_MINT_TIMES: u64 = 10_000;
-    const MAX_MINT_FEE: u64 = 10_000_000_000;
+    const MAX_MINT_FEE: u64 = 100_000_000_000;
     const EPOCH_DURATION_MS: u64 = 60 * 1000;
     const MIN_EPOCHS: u64 = 60*2;
 
@@ -33,10 +31,7 @@ module smartinscription::movescription {
     const ErrorTickAlreadyExists: u64 = 2;
     const ErrorTickNotExists: u64 = 3;
     const ENotEnoughSupply: u64 = 4;
-    //const EInappropriateMintTimes: u64 = 5;
-    //const EOverMaxPerMint: u64 = 6;
     const ENotEnoughToMint: u64 = 7;
-    //const EMintTooFrequently: u64 = 8;
     const EInvalidAmount: u64 = 9;
     const ENotSameTick: u64 = 10;
     const EBalanceDONE: u64 = 11;
@@ -46,6 +41,7 @@ module smartinscription::movescription {
     const EInvalidEpoch: u64 = 15;
     const EAttachCoinExists: u64 = 16;
     const EInvalidStartTime: u64 = 17;
+    const ENotSameMetadata: u64 = 18;
 
     // ======== Types =========
     struct Movescription has key, store {
@@ -55,6 +51,16 @@ module smartinscription::movescription {
         /// The attachments coin count of the inscription.
         attach_coin: u64,
         acc: Balance<SUI>,
+        // Add a metadata field for future extension
+        metadata: Option<Metadata>,
+    }
+
+    #[allow(unused_field)]
+    struct Metadata has store, copy, drop {
+        /// The metadata content type, eg: image/png, image/jpeg, it is optional
+        content_type: std::string::String,  
+        /// The metadata content
+        content: vector<u8>,
     }
 
     struct InscriptionBalance<phantom T> has copy, drop, store { }
@@ -92,6 +98,7 @@ module smartinscription::movescription {
 
     // ======== Events =========
     struct DeployTick has copy, drop {
+        id: ID,
         deployer: address,
         tick: String,
         total_supply: u64,
@@ -155,6 +162,23 @@ module smartinscription::movescription {
         transfer::public_transfer(display, deployer);
     }
 
+    fun new_movescription(
+        amount: u64,
+        tick: String,
+        fee_balance: Balance<SUI>,
+        metadata: Option<Metadata>,
+        ctx: &mut TxContext
+    ): Movescription {
+        Movescription {
+            id: object::new(ctx),
+            amount,
+            tick,
+            attach_coin: 0,
+            acc: fee_balance,
+            metadata,
+        }
+    }
+
     fun do_deploy(
         deploy_record: &mut DeployRecord, 
         tick: vector<u8>,
@@ -171,11 +195,12 @@ module smartinscription::movescription {
         assert!(!table::contains(&deploy_record.record, tick_str), ErrorTickAlreadyExists);
         assert!(total_supply > MIN_EPOCHS, ENotEnoughSupply);
         assert!(epoch_count >= MIN_EPOCHS, EInvalidEpoch);
-        
-        //TODO should we limit the max mint fee?
         assert!(mint_fee <= MAX_MINT_FEE, ETooHighFee);
+        
+        let tick_uid = object::new(ctx);
+        let tick_id = object::uid_to_inner(&tick_uid);
         let tick_record: TickRecord = TickRecord {
-            id: object::new(ctx),
+            id: tick_uid,
             version: VERSION,
             tick: tick_str,
             total_supply,
@@ -192,6 +217,7 @@ module smartinscription::movescription {
         table::add(&mut deploy_record.record, tick_str, tk_record_address);
         transfer::share_object(tick_record);
         emit(DeployTick {
+            id: tick_id,
             deployer: tx_context::sender(ctx),
             tick: tick_str,
             total_supply,
@@ -332,9 +358,7 @@ module smartinscription::movescription {
             let player = *vector::borrow(&players, idx);
             let fee_balance: Balance<SUI> = table::remove(&mut epoch_record.mint_fees, player);
             if (tick_record.remain > 0) {
-                let ins: Movescription = new_inscription(
-                per_player_amount, tick, fee_balance, ctx
-                );
+                let ins: Movescription = new_movescription(per_player_amount, tick, fee_balance, option::none(), ctx);
                 transfer::public_transfer(ins, player);
                 tick_record.remain = tick_record.remain - per_player_amount;
                 tick_record.current_supply = tick_record.current_supply + per_player_amount;
@@ -368,29 +392,15 @@ module smartinscription::movescription {
         };
     }
 
-    fun new_inscription(
-        amount: u64,
-        tick: String,
-        fee_balance: Balance<SUI>,
-        ctx: &mut TxContext
-    ): Movescription {
-        Movescription {
-            id: object::new(ctx),
-            amount,
-            tick,
-            attach_coin: 0,
-            acc: fee_balance,
-        }
-    }
-
     public entry fun merge(
         inscription1: &mut Movescription,
         inscription2: Movescription,
     ) {
         assert!(inscription1.tick == inscription2.tick, ENotSameTick);
         assert!(inscription2.attach_coin == 0, EAttachCoinExists);
+        assert!(inscription1.metadata == inscription2.metadata, ENotSameMetadata);
 
-        let Movescription { id, amount, tick: _, attach_coin:_, acc } = inscription2;
+        let Movescription { id, amount, tick: _, attach_coin:_, acc, metadata:_ } = inscription2;
         inscription1.amount = inscription1.amount + amount;
         balance::join<SUI>(&mut inscription1.acc, acc);
         object::delete(id);
@@ -402,7 +412,7 @@ module smartinscription::movescription {
         ctx: &mut TxContext
     ) : Coin<SUI> {
         assert!(inscription.attach_coin == 0, EAttachCoinExists);
-        let Movescription { id, amount: amount, tick: _, attach_coin:_, acc } = inscription;
+        let Movescription { id, amount: amount, tick: _, attach_coin:_, acc, metadata:_ } = inscription;
         tick_record.current_supply = tick_record.current_supply - amount;
         let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
         object::delete(id);
@@ -436,12 +446,12 @@ module smartinscription::movescription {
             };
             balance::split<SUI>(&mut inscription.acc, new_ins_fee_balance_amount)
         };
-        let ins: Movescription = new_inscription(
+        new_movescription(
             amount, 
             inscription.tick,
             new_ins_fee_balance,
-            ctx);
-        ins
+            inscription.metadata,
+            ctx)
     }
 
     #[lint_allow(self_transfer)]
@@ -482,10 +492,9 @@ module smartinscription::movescription {
         return_coin
     }
 
-    public fun clean_epoch_records(tick_record: &mut TickRecord, _holder: address) {
+    public fun clean_epoch_records(tick_record: &mut TickRecord, _epoch: u64, _ctx: &mut TxContext) {
         assert!(tick_record.remain == 0, EStillMinting);
-        //TODO
-        //table::remove(&mut tick_record.epoch_records, holder);
+        //TODO clean the epoch records
     }
 
     // ======== Movescription Read Functions =========
