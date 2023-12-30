@@ -222,18 +222,15 @@ module smartinscription::inscription {
     }
 
     #[lint_allow(self_transfer)]
-    public entry fun mint(
+    public fun do_mint(
         tick_record: &mut TickRecord,
-        tick: vector<u8>,
         fee_coin: Coin<SUI>,
         clk: &Clock,
         ctx: &mut TxContext
     ) {
-        let sender: address = tx_context::sender(ctx);
-        to_uppercase(&mut tick);
-        let tick_str: String = utf8(tick);
-        assert!(tick_record.tick == tick_str, ErrorTickNotExists);  // parallel optimization
         assert!(tick_record.remain > 0, ENotEnoughToMint);
+        let sender: address = tx_context::sender(ctx);
+        let tick: String = tick_record.tick;
         let now_ms = clock::timestamp_ms(clk);
         assert!(now_ms >= tick_record.start_time_ms, ENotStarted);
         let mint_fee_coin = if(coin::value<SUI>(&fee_coin) == tick_record.mint_fee){
@@ -248,27 +245,57 @@ module smartinscription::inscription {
         let current_epoch = tick_record.current_epoch;
         if (table::contains(&tick_record.epoch_records, current_epoch)){
             let epoch_record: &mut EpochRecord = table::borrow_mut(&mut tick_record.epoch_records, current_epoch);
-            if (!table::contains(&epoch_record.mint_fees, sender)) {
-                vector::push_back(&mut epoch_record.players, sender);
-                table::add(&mut epoch_record.mint_fees, sender, fee_balance);
-            } else {
-                let last_fee_balance: &mut Balance<SUI> = table::borrow_mut(&mut epoch_record.mint_fees, sender);
-                balance::join(last_fee_balance, fee_balance);
-            };
+            mint_in_epoch(epoch_record, sender, fee_balance);
             // if the epoch is over, we need to settle it and start a new epoch
             if(epoch_record.start_time_ms + EPOCH_DURATION_MS < now_ms){
                 settlement(tick_record, current_epoch, sender,  now_ms, ctx);
             };
         }else{
-            let epoch_record = new_epoch_record(tick_str, current_epoch, now_ms, sender, fee_balance, ctx);
+            let epoch_record = new_epoch_record(tick, current_epoch, now_ms, sender, fee_balance, ctx);
             table::add(&mut tick_record.epoch_records, current_epoch, epoch_record);
         };
 
 
         emit(MintTick {
             sender: sender,
-            tick: tick_str,
+            tick: tick,
         });
+    }
+
+    fun mint_in_epoch(epoch_record: &mut EpochRecord, sender: address, fee_balance: Balance<SUI>){
+        if (!table::contains(&epoch_record.mint_fees, sender)) {
+            vector::push_back(&mut epoch_record.players, sender);
+            table::add(&mut epoch_record.mint_fees, sender, fee_balance);
+        } else {
+            let last_fee_balance: &mut Balance<SUI> = table::borrow_mut(&mut epoch_record.mint_fees, sender);
+            balance::join(last_fee_balance, fee_balance);
+        };
+    }
+
+    public entry fun mint(
+        tick_record: &mut TickRecord,
+        tick: vector<u8>,
+        fee_coin: Coin<SUI>,
+        clk: &Clock,
+        ctx: &mut TxContext
+    ) {
+        to_uppercase(&mut tick);
+        let tick_str: String = utf8(tick);
+        assert!(tick_record.tick == tick_str, ErrorTickNotExists);  // parallel optimization
+        do_mint(tick_record, fee_coin, clk, ctx);
+    }
+
+    /// Mint by transfer SUI to the TickRecord Object
+    public fun mint_by_transfer(tick_record: &mut TickRecord, sent: Receiving<Coin<SUI>>, ctx: &mut TxContext) {
+        std::debug::print(&utf8(b"mint_by_transfer"));
+        assert!(tick_record.remain > 0, ENotEnoughToMint);
+        let sender: address = tx_context::sender(ctx); 
+        let coin = transfer::public_receive(&mut tick_record.id, sent);
+        assert!(coin::value<SUI>(&coin) == tick_record.mint_fee, ETooHighFee);
+        let current_epoch = tick_record.current_epoch;
+        assert!(table::contains(&tick_record.epoch_records, current_epoch), ENotStarted);
+        let epoch_record: &mut EpochRecord = table::borrow_mut(&mut tick_record.epoch_records, current_epoch);
+        mint_in_epoch(epoch_record, sender, coin::into_balance<SUI>(coin));
     }
 
     fun new_epoch_record(tick: String, epoch: u64, now_ms: u64, sender: address, fee_balance: Balance<SUI>, ctx: &mut TxContext) : EpochRecord{
