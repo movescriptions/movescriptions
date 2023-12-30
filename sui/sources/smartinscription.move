@@ -44,6 +44,8 @@ module smartinscription::inscription {
     const EStillMinting: u64 = 13;
     const ENotStarted: u64 = 14;
     const EInvalidEpoch: u64 = 15;
+    const EAttachCoinExists: u64 = 16;
+    const EInvalidStartTime: u64 = 17;
 
     // ======== Types =========
     struct Inscription has key, store {
@@ -51,6 +53,8 @@ module smartinscription::inscription {
         amount: u64,
         tick: String,
         image_url: Option<String>,
+        /// The attachments coin count of the inscription.
+        attach_coin: u64,
         acc: Balance<SUI>,
     }
 
@@ -95,6 +99,8 @@ module smartinscription::inscription {
         deployer: address,
         tick: String,
         total_supply: u64,
+        start_time_ms: u64,
+        epoch_count: u64,
         mint_fee: u64,
     }
 
@@ -103,9 +109,25 @@ module smartinscription::inscription {
         tick: String,
     }
 
+    struct NewEpoch has copy, drop {
+        tick: String,
+        epoch: u64,
+        start_time_ms: u64,
+    }
+
+    struct SettleEpoch has copy, drop {
+        tick: String,
+        epoch: u64,
+        settle_user: address,
+        settle_time_ms: u64,
+        palyers_count: u64,
+        epoch_amount: u64,
+    }
+
     // ======== Functions =========
     fun init(otw: INSCRIPTION, ctx: &mut TxContext) {
         let deploy_record = DeployRecord { id: object::new(ctx), version: VERSION, record: table::new(ctx) };
+        do_deploy(&mut deploy_record, b"MOVE", 100_0000_0000, 1704038400*1000, 60*24*15, 1000, b"", ctx);
         transfer::share_object(deploy_record);
         let keys = vector[
             utf8(b"tick"),
@@ -134,7 +156,7 @@ module smartinscription::inscription {
         transfer::public_transfer(img_cap, tx_context::sender(ctx));
     }
 
-    public entry fun deploy(
+    fun do_deploy(
         deploy_record: &mut DeployRecord, 
         tick: vector<u8>,
         total_supply: u64,
@@ -174,8 +196,29 @@ module smartinscription::inscription {
             deployer: tx_context::sender(ctx),
             tick: tick_str,
             total_supply,
+            start_time_ms,
+            epoch_count,
             mint_fee,
         });
+    }
+
+    public entry fun deploy(
+        deploy_record: &mut DeployRecord, 
+        tick: vector<u8>,
+        total_supply: u64,
+        start_time_ms: u64,
+        epoch_count: u64,
+        mint_fee: u64,
+        image_url: vector<u8>,
+        clk: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let now_ms = clock::timestamp_ms(clk);
+        if(start_time_ms == 0){
+            start_time_ms = now_ms;
+        };
+        assert!(start_time_ms >= now_ms, EInvalidStartTime); 
+        do_deploy(deploy_record, tick, total_supply, start_time_ms, epoch_count, mint_fee, image_url, ctx);
     }
 
     #[lint_allow(self_transfer)]
@@ -212,7 +255,7 @@ module smartinscription::inscription {
                 settlement(tick_record, current_epoch, sender,  now_ms, ctx);
             };
         }else{
-            let epoch_record = new_epoch_record(current_epoch, now_ms, sender, fee_balance, ctx);
+            let epoch_record = new_epoch_record(tick_str, current_epoch, now_ms, sender, fee_balance, ctx);
             table::add(&mut tick_record.epoch_records, current_epoch, epoch_record);
         };
 
@@ -222,9 +265,14 @@ module smartinscription::inscription {
         });
     }
 
-    fun new_epoch_record(epoch: u64, now_ms: u64, sender: address, fee_balance: Balance<SUI>, ctx: &mut TxContext) : EpochRecord{
+    fun new_epoch_record(tick: String, epoch: u64, now_ms: u64, sender: address, fee_balance: Balance<SUI>, ctx: &mut TxContext) : EpochRecord{
         let mint_fees = table::new(ctx);
         table::add(&mut mint_fees, sender, fee_balance);
+        emit(NewEpoch {
+            tick,
+            epoch,
+            start_time_ms: now_ms,
+        });
         EpochRecord {
             epoch,
             start_time_ms: now_ms,
@@ -234,7 +282,7 @@ module smartinscription::inscription {
     }
 
     fun settlement(tick_record: &mut TickRecord, epoch: u64, settle_user: address, now_ms: u64, ctx: &mut TxContext) {
-        let tick_str = tick_record.tick;
+        let tick = tick_record.tick;
         let epoch_record: &mut EpochRecord = table::borrow_mut(&mut tick_record.epoch_records, epoch);
         let epoch_amount = tick_record.total_supply / tick_record.epoch_count;
         
@@ -247,26 +295,41 @@ module smartinscription::inscription {
         let players_len = vector::length(&players);
         
         let per_player_amount = epoch_amount / players_len;
+        if(per_player_amount == 0){
+            per_player_amount = 1;
+        };
         let real_epoch_amount = 0;
         while (idx < players_len) {
             let player = *vector::borrow(&players, idx);
             let fee_balance: Balance<SUI> = table::remove(&mut epoch_record.mint_fees, player);
             let ins: Inscription = new_inscription(
-                per_player_amount, tick_str, tick_record.image_url, fee_balance, ctx
+                per_player_amount, tick, tick_record.image_url, fee_balance, ctx
             );
             real_epoch_amount = real_epoch_amount + per_player_amount;
             transfer::public_transfer(ins, player);
             idx = idx + 1;
         };
-        
-        tick_record.remain = tick_record.remain - real_epoch_amount;
+        if(tick_record.remain < real_epoch_amount){
+            tick_record.remain = 0;
+        }else{
+            tick_record.remain = tick_record.remain - real_epoch_amount;
+        };
+
+        emit(SettleEpoch {
+            tick,
+            epoch,
+            settle_user,
+            settle_time_ms: now_ms,
+            palyers_count: players_len,
+            epoch_amount: real_epoch_amount,
+        });
 
         if (tick_record.remain != 0) {
             //start a new epoch
             let new_epoch = epoch + 1;
             // the settle_user is the first player in the new epoch, but the mint_fee belongs to the last epoch
             // it means the settle_user can free mint a new inscription as a reward
-            let epoch_record = new_epoch_record(new_epoch, now_ms, settle_user, balance::zero<SUI>(), ctx);
+            let epoch_record = new_epoch_record(tick, new_epoch, now_ms, settle_user, balance::zero<SUI>(), ctx);
             table::add(&mut tick_record.epoch_records, new_epoch, epoch_record);
             tick_record.current_epoch = new_epoch;
         };
@@ -284,50 +347,70 @@ module smartinscription::inscription {
             amount,
             tick,
             image_url,
+            attach_coin: 0,
             acc: fee_balance,
         }
     }
 
-    // Warning, check inscription_balance_type before merge.
-    public fun merge(
+    public entry fun merge(
         inscription1: &mut Inscription,
         inscription2: Inscription,
     ) {
         assert!(inscription1.tick == inscription2.tick, ENotSameTick);
+        assert!(inscription2.attach_coin == 0, EAttachCoinExists);
 
-        let Inscription { id, amount, tick: _, image_url: _, acc } = inscription2;
+        let Inscription { id, amount, tick: _, attach_coin:_, image_url: _, acc } = inscription2;
         inscription1.amount = inscription1.amount + amount;
         balance::join<SUI>(&mut inscription1.acc, acc);
         object::delete(id);
     }
 
-    // Warning, check inscription_balance_type before burn.
     #[lint_allow(self_transfer)]
     public entry fun burn(
         inscription: Inscription,
         ctx: &mut TxContext
     ) {
-        let Inscription { id, amount: _, tick: _, image_url: _, acc } = inscription;
+        assert!(inscription.attach_coin == 0, EAttachCoinExists);
+        let Inscription { id, amount: _, tick: _, attach_coin:_, image_url: _, acc } = inscription;
         let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
         object::delete(id);
         transfer::public_transfer(acc, tx_context::sender(ctx));
     }
 
-    public fun split(
+    public fun do_split(
         inscription: &mut Inscription,
         amount: u64,
         ctx: &mut TxContext
-    ): Inscription {
+    ) : Inscription {
         assert!(0 < amount && amount < inscription.amount, EInvalidAmount);
         inscription.amount = inscription.amount - amount;
-
+        let fee_balance_amount = balance::value(&inscription.acc);
+        let new_ins_fee_balance = if(fee_balance_amount == 0){
+            balance::zero<SUI>()
+        }else{
+            let new_ins_fee_balance_amount = (fee_balance_amount*amount)/inscription.amount;
+            if(new_ins_fee_balance_amount == 0){
+                new_ins_fee_balance_amount = 1;
+            };
+            balance::split<SUI>(&mut inscription.acc, new_ins_fee_balance_amount)
+        };
         let ins: Inscription = new_inscription(
             amount, 
             inscription.tick,
             inscription.image_url,
-            balance::zero<SUI>(),
+            new_ins_fee_balance,
             ctx);
         ins
+    }
+
+    #[lint_allow(self_transfer)]
+    public entry fun split(
+        inscription: &mut Inscription,
+        amount: u64,
+        ctx: &mut TxContext
+    ) {
+        let ins = do_split(inscription, amount, ctx);
+        transfer::public_transfer(ins, tx_context::sender(ctx));
     }
 
     public fun inject_sui(inscription: &mut Inscription, receive: Coin<SUI>) {
@@ -343,6 +426,7 @@ module smartinscription::inscription {
             let balance: &mut Coin<T> = df::borrow_mut(inscription_uid, inscription_balance_type);
             coin::join(balance, coin);
         } else {
+            inscription.attach_coin = inscription.attach_coin + 1;
             df::add(inscription_uid, inscription_balance_type, coin);
         }
     }
@@ -351,6 +435,7 @@ module smartinscription::inscription {
         let inscription_balance_type = InscriptionBalance<T>{};
         let inscription_uid = &mut inscription.id;
         assert!(df::exists_(inscription_uid, inscription_balance_type), EBalanceDONE);
+        inscription.attach_coin = inscription.attach_coin - 1;
         let return_coin: Coin<T> = df::remove(inscription_uid, inscription_balance_type);
         return_coin
     }
@@ -370,13 +455,21 @@ module smartinscription::inscription {
         inscription.tick = tick_record.tick;
     }
 
-    // ======== Read Functions =========
+    // ======== Inscription Read Functions =========
     public fun amount(inscription: &Inscription): u64 {
         inscription.amount
     }
 
     public fun tick(inscription: &Inscription): String {
         inscription.tick
+    }
+
+    public fun attach_coin(inscription: &Inscription): u64 {
+        inscription.attach_coin
+    }
+
+    public fun acc(inscription: &Inscription): u64 {
+        balance::value(&inscription.acc)
     }
 
     // ======== Constants functions =========

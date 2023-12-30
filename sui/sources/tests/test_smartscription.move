@@ -34,7 +34,7 @@ module smartinscription::test_smartscription {
         test_scenario::next_tx(scenario, admin);
         {
             let deploy_record = test_scenario::take_shared<inscription::DeployRecord>(scenario);
-            inscription::deploy(&mut deploy_record, b"test", total_supply, start_time_ms, epoch_count, 1000, b"", test_scenario::ctx(scenario));
+            inscription::deploy(&mut deploy_record, b"test", total_supply, start_time_ms, epoch_count, 1000, b"", &c, test_scenario::ctx(scenario));
             test_scenario::return_shared(deploy_record);
         };
 
@@ -63,9 +63,11 @@ module smartinscription::test_smartscription {
             let first_inscription = test_scenario::take_from_sender<inscription::Inscription>(scenario);
             assert!(inscription::amount(&first_inscription) == epoch_amount, 1);
 
-            let second_inscription = inscription::split(&mut first_inscription, 100, test_scenario::ctx(scenario));
+            let second_inscription = inscription::do_split(&mut first_inscription, 100, test_scenario::ctx(scenario));
             assert!(inscription::amount(&second_inscription) == 100, 1);
             inscription::merge(&mut first_inscription, second_inscription);
+            //std::debug::print(&epoch_amount);
+            //std::debug::print(&first_inscription);
             assert!(inscription::amount(&first_inscription) == epoch_amount, 1);
             inscription::burn(first_inscription, test_scenario::ctx(scenario));
         };
