@@ -321,7 +321,7 @@ module smartinscription::inscription {
     fun settlement(tick_record: &mut TickRecord, epoch: u64, settle_user: address, now_ms: u64, ctx: &mut TxContext) {
         let tick = tick_record.tick;
         let epoch_record: &mut EpochRecord = table::borrow_mut(&mut tick_record.epoch_records, epoch);
-        let epoch_amount = tick_record.total_supply / tick_record.epoch_count;
+        let epoch_amount: u64 = tick_record.total_supply / tick_record.epoch_count;
         
         if (epoch_amount > tick_record.remain) {
             epoch_amount = tick_record.remain;
@@ -332,7 +332,7 @@ module smartinscription::inscription {
         let players_len = vector::length(&players);
         
         let per_player_amount = epoch_amount / players_len;
-        if(per_player_amount == 0){
+        if (per_player_amount == 0) {
             per_player_amount = 1;
         };
         let real_epoch_amount = 0;
@@ -467,6 +467,7 @@ module smartinscription::inscription {
         transfer::public_transfer(ins, tx_context::sender(ctx));
     }
 
+    // Interface reserved for future SFT transactions
     public fun inject_sui(inscription: &mut Inscription, receive: Coin<SUI>) {
         coin::put(&mut inscription.acc, receive);
     }
