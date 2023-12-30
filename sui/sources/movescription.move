@@ -1,4 +1,4 @@
-module smartinscription::inscription {
+module smartinscription::movescription {
     use std::ascii::{Self, string, String};
     use std::vector;
     use sui::object::{Self, UID};
@@ -48,7 +48,7 @@ module smartinscription::inscription {
     const EInvalidStartTime: u64 = 17;
 
     // ======== Types =========
-    struct Inscription has key, store {
+    struct Movescription has key, store {
         id: UID,
         amount: u64,
         tick: String,
@@ -60,7 +60,7 @@ module smartinscription::inscription {
     struct InscriptionBalance<phantom T> has copy, drop, store { }
 
     /// One-Time-Witness for the module.
-    struct INSCRIPTION has drop {}
+    struct MOVESCRIPTION has drop {}
 
     struct DeployRecord has key {
         id: UID,
@@ -121,7 +121,7 @@ module smartinscription::inscription {
     }
 
     // ======== Functions =========
-    fun init(otw: INSCRIPTION, ctx: &mut TxContext) {
+    fun init(otw: MOVESCRIPTION, ctx: &mut TxContext) {
         let deploy_record = DeployRecord { id: object::new(ctx), version: VERSION, record: table::new(ctx) };
         do_deploy(&mut deploy_record, b"MOVE", 100_0000_0000, 1704038400*1000, 60*24*15, 100000000, ctx);
         transfer::share_object(deploy_record);
@@ -146,7 +146,7 @@ module smartinscription::inscription {
             std::string::utf8(b"https://movescriptions.org"),
         ];
         let publisher = package::claim(otw, ctx);
-        let display = display::new_with_fields<Inscription>(
+        let display = display::new_with_fields<Movescription>(
             &publisher, keys, values, ctx
         );
         display::update_version(&mut display);
@@ -332,7 +332,7 @@ module smartinscription::inscription {
             let player = *vector::borrow(&players, idx);
             let fee_balance: Balance<SUI> = table::remove(&mut epoch_record.mint_fees, player);
             if (tick_record.remain > 0) {
-                let ins: Inscription = new_inscription(
+                let ins: Movescription = new_inscription(
                 per_player_amount, tick, fee_balance, ctx
                 );
                 transfer::public_transfer(ins, player);
@@ -373,8 +373,8 @@ module smartinscription::inscription {
         tick: String,
         fee_balance: Balance<SUI>,
         ctx: &mut TxContext
-    ): Inscription {
-        Inscription {
+    ): Movescription {
+        Movescription {
             id: object::new(ctx),
             amount,
             tick,
@@ -384,13 +384,13 @@ module smartinscription::inscription {
     }
 
     public entry fun merge(
-        inscription1: &mut Inscription,
-        inscription2: Inscription,
+        inscription1: &mut Movescription,
+        inscription2: Movescription,
     ) {
         assert!(inscription1.tick == inscription2.tick, ENotSameTick);
         assert!(inscription2.attach_coin == 0, EAttachCoinExists);
 
-        let Inscription { id, amount, tick: _, attach_coin:_, acc } = inscription2;
+        let Movescription { id, amount, tick: _, attach_coin:_, acc } = inscription2;
         inscription1.amount = inscription1.amount + amount;
         balance::join<SUI>(&mut inscription1.acc, acc);
         object::delete(id);
@@ -398,11 +398,11 @@ module smartinscription::inscription {
 
     public fun do_burn(
         tick_record: &mut TickRecord,
-        inscription: Inscription,
+        inscription: Movescription,
         ctx: &mut TxContext
     ) : Coin<SUI> {
         assert!(inscription.attach_coin == 0, EAttachCoinExists);
-        let Inscription { id, amount: amount, tick: _, attach_coin:_, acc } = inscription;
+        let Movescription { id, amount: amount, tick: _, attach_coin:_, acc } = inscription;
         tick_record.current_supply = tick_record.current_supply - amount;
         let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
         object::delete(id);
@@ -412,7 +412,7 @@ module smartinscription::inscription {
     #[lint_allow(self_transfer)]
     public entry fun burn(
         tick_record: &mut TickRecord,
-        inscription: Inscription,
+        inscription: Movescription,
         ctx: &mut TxContext
     ) {
         let acc = do_burn(tick_record, inscription, ctx);
@@ -420,10 +420,10 @@ module smartinscription::inscription {
     }
 
     public fun do_split(
-        inscription: &mut Inscription,
+        inscription: &mut Movescription,
         amount: u64,
         ctx: &mut TxContext
-    ) : Inscription {
+    ) : Movescription {
         assert!(0 < amount && amount < inscription.amount, EInvalidAmount);
         inscription.amount = inscription.amount - amount;
         let fee_balance_amount = balance::value(&inscription.acc);
@@ -436,7 +436,7 @@ module smartinscription::inscription {
             };
             balance::split<SUI>(&mut inscription.acc, new_ins_fee_balance_amount)
         };
-        let ins: Inscription = new_inscription(
+        let ins: Movescription = new_inscription(
             amount, 
             inscription.tick,
             new_ins_fee_balance,
@@ -446,7 +446,7 @@ module smartinscription::inscription {
 
     #[lint_allow(self_transfer)]
     public entry fun split(
-        inscription: &mut Inscription,
+        inscription: &mut Movescription,
         amount: u64,
         ctx: &mut TxContext
     ) {
@@ -455,11 +455,11 @@ module smartinscription::inscription {
     }
 
     // Interface reserved for future SFT transactions
-    public fun inject_sui(inscription: &mut Inscription, receive: Coin<SUI>) {
+    public fun inject_sui(inscription: &mut Movescription, receive: Coin<SUI>) {
         coin::put(&mut inscription.acc, receive);
     }
 
-    public fun accept_coin<T>(inscription: &mut Inscription, sent: Receiving<Coin<T>>) {
+    public fun accept_coin<T>(inscription: &mut Movescription, sent: Receiving<Coin<T>>) {
         let coin = transfer::public_receive(&mut inscription.id, sent);
         let inscription_balance_type = InscriptionBalance<T>{};
         let inscription_uid = &mut inscription.id;
@@ -473,7 +473,7 @@ module smartinscription::inscription {
         }
     }
 
-    public fun withdraw_all<T>(inscription: &mut Inscription): Coin<T> {
+    public fun withdraw_all<T>(inscription: &mut Movescription): Coin<T> {
         let inscription_balance_type = InscriptionBalance<T>{};
         let inscription_uid = &mut inscription.id;
         assert!(df::exists_(inscription_uid, inscription_balance_type), EBalanceDONE);
@@ -488,20 +488,20 @@ module smartinscription::inscription {
         //table::remove(&mut tick_record.epoch_records, holder);
     }
 
-    // ======== Inscription Read Functions =========
-    public fun amount(inscription: &Inscription): u64 {
+    // ======== Movescription Read Functions =========
+    public fun amount(inscription: &Movescription): u64 {
         inscription.amount
     }
 
-    public fun tick(inscription: &Inscription): String {
+    public fun tick(inscription: &Movescription): String {
         inscription.tick
     }
 
-    public fun attach_coin(inscription: &Inscription): u64 {
+    public fun attach_coin(inscription: &Movescription): u64 {
         inscription.attach_coin
     }
 
-    public fun acc(inscription: &Inscription): u64 {
+    public fun acc(inscription: &Movescription): u64 {
         balance::value(&inscription.acc)
     }
 
@@ -550,7 +550,7 @@ module smartinscription::inscription {
 
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
-        init(INSCRIPTION{}, ctx);
+        init(MOVESCRIPTION{}, ctx);
     }
 
 }
