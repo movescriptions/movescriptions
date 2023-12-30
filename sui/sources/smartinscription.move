@@ -88,6 +88,8 @@ module smartinscription::inscription {
         mint_fee: u64,
         image_url: Option<String>,
         epoch_records: Table<u64, EpochRecord>,
+        current_supply: u64,
+        total_transactions: u64,
     }
 
     struct ImgCap has key, store {
@@ -171,7 +173,7 @@ module smartinscription::inscription {
         let tick_len: u64 = string::length(&tick_str);
         assert!(MIN_TICK_LENGTH <= tick_len && tick_len <= MAX_TICK_LENGTH, ErrorTickLengthInvaid);
         assert!(!table::contains(&deploy_record.record, tick_str), ErrorTickAlreadyExists);
-        assert!(total_supply > 0, ENotEnoughSupply);
+        assert!(total_supply > MIN_EPOCHS, ENotEnoughSupply);
         assert!(epoch_count >= MIN_EPOCHS, EInvalidEpoch);
         
         //TODO should we limit the max mint fee?
@@ -187,7 +189,9 @@ module smartinscription::inscription {
             remain: total_supply,
             mint_fee,
             image_url: string::try_utf8(image_url),
-            epoch_records: table::new(ctx)
+            epoch_records: table::new(ctx),
+            current_supply: 0,
+            total_transactions: 0,
         };
         let tk_record_address: address = object::id_address(&tick_record);
         table::add(&mut deploy_record.record, tick_str, tk_record_address);
@@ -229,10 +233,13 @@ module smartinscription::inscription {
         ctx: &mut TxContext
     ) {
         assert!(tick_record.remain > 0, ENotEnoughToMint);
-        let sender: address = tx_context::sender(ctx);
-        let tick: String = tick_record.tick;
         let now_ms = clock::timestamp_ms(clk);
         assert!(now_ms >= tick_record.start_time_ms, ENotStarted);
+        tick_record.total_transactions = tick_record.total_transactions + 1;
+
+        let sender: address = tx_context::sender(ctx);
+        let tick: String = tick_record.tick;
+
         let mint_fee_coin = if(coin::value<SUI>(&fee_coin) == tick_record.mint_fee){
             fee_coin
         }else{
@@ -294,6 +301,8 @@ module smartinscription::inscription {
         assert!(coin::value<SUI>(&coin) == tick_record.mint_fee, ETooHighFee);
         let current_epoch = tick_record.current_epoch;
         assert!(table::contains(&tick_record.epoch_records, current_epoch), ENotStarted);
+        
+        tick_record.total_transactions = tick_record.total_transactions + 1;
         let epoch_record: &mut EpochRecord = table::borrow_mut(&mut tick_record.epoch_records, current_epoch);
         mint_in_epoch(epoch_record, sender, coin::into_balance<SUI>(coin));
     }
@@ -342,11 +351,17 @@ module smartinscription::inscription {
             transfer::public_transfer(ins, player);
             idx = idx + 1;
         };
+        // The mint_fees should be empty, this should not happen, add assert for debug
+        // We can remove this assert after we are sure there is no bug
+        assert!(table::is_empty(&epoch_record.mint_fees), 0);
+
         if(tick_record.remain < real_epoch_amount){
             tick_record.remain = 0;
         }else{
             tick_record.remain = tick_record.remain - real_epoch_amount;
         };
+
+        tick_record.current_supply = tick_record.current_supply + real_epoch_amount;
 
         emit(SettleEpoch {
             tick,
@@ -398,15 +413,26 @@ module smartinscription::inscription {
         object::delete(id);
     }
 
+    public fun do_burn(
+        tick_record: &mut TickRecord,
+        inscription: Inscription,
+        ctx: &mut TxContext
+    ) : Coin<SUI> {
+        assert!(inscription.attach_coin == 0, EAttachCoinExists);
+        let Inscription { id, amount: amount, tick: _, attach_coin:_, image_url: _, acc } = inscription;
+        tick_record.current_supply = tick_record.current_supply - amount;
+        let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
+        object::delete(id);
+        acc
+    }
+
     #[lint_allow(self_transfer)]
     public entry fun burn(
+        tick_record: &mut TickRecord,
         inscription: Inscription,
         ctx: &mut TxContext
     ) {
-        assert!(inscription.attach_coin == 0, EAttachCoinExists);
-        let Inscription { id, amount: _, tick: _, attach_coin:_, image_url: _, acc } = inscription;
-        let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
-        object::delete(id);
+        let acc = do_burn(tick_record, inscription, ctx);
         transfer::public_transfer(acc, tx_context::sender(ctx));
     }
 
