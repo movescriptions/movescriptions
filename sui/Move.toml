@@ -1,6 +1,6 @@
 [package]
 name = "SmartInscription"
-authors = ["Pika", "10xhunter"]
+authors = ["Pika", "10xhunter", "jolestar", "jojoo-eth"]
 version = "0.0.1"
 
 [dependencies]
