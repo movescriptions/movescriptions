@@ -225,7 +225,7 @@ module smartinscription::inscription {
     public entry fun mint(
         tick_record: &mut TickRecord,
         tick: vector<u8>,
-        mint_fee_coin: &mut Coin<SUI>,
+        mint_fee_coin: Coin<SUI>,
         clk: &Clock,
         ctx: &mut TxContext
     ) {
@@ -233,12 +233,12 @@ module smartinscription::inscription {
         to_uppercase(&mut tick);
         let tick_str: String = utf8(tick);
         assert!(tick_record.tick == tick_str, ErrorTickNotExists);  // parallel optimization
-        let fee_coin: Coin<SUI> = coin::split(mint_fee_coin, tick_record.mint_fee, ctx);
+        assert!(tick_record.mint_fee == coin::value<SUI>(&mint_fee_coin), ETooHighFee);
         assert!(tick_record.remain > 0, ENotEnoughToMint);
         let now_ms = clock::timestamp_ms(clk);
         assert!(now_ms >= tick_record.start_time_ms, ENotStarted);
 
-        let fee_balance: Balance<SUI> = coin::into_balance<SUI>(fee_coin);
+        let fee_balance: Balance<SUI> = coin::into_balance<SUI>(mint_fee_coin);
 
         let current_epoch = tick_record.current_epoch;
         if (table::contains(&tick_record.epoch_records, current_epoch)){
@@ -258,6 +258,7 @@ module smartinscription::inscription {
             let epoch_record = new_epoch_record(tick_str, current_epoch, now_ms, sender, fee_balance, ctx);
             table::add(&mut tick_record.epoch_records, current_epoch, epoch_record);
         };
+
 
         emit(MintTick {
             sender: sender,
