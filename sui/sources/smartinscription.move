@@ -439,11 +439,11 @@ module smartinscription::inscription {
         assert!(0 < amount && amount < inscription.amount, EInvalidAmount);
         inscription.amount = inscription.amount - amount;
         let fee_balance_amount = balance::value(&inscription.acc);
-        let new_ins_fee_balance = if(fee_balance_amount == 0){
+        let new_ins_fee_balance = if (fee_balance_amount == 0) {
             balance::zero<SUI>()
-        }else{
-            let new_ins_fee_balance_amount = (fee_balance_amount*amount)/inscription.amount;
-            if(new_ins_fee_balance_amount == 0){
+        } else {
+            let new_ins_fee_balance_amount = ((((fee_balance_amount as u128) * (amount as u128)) / (inscription.amount as u128)) as u64);
+            if (new_ins_fee_balance_amount == 0) {
                 new_ins_fee_balance_amount = 1;
             };
             balance::split<SUI>(&mut inscription.acc, new_ins_fee_balance_amount)
