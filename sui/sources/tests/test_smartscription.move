@@ -61,7 +61,7 @@ module smartinscription::test_smartscription {
             //std::debug::print(&epoch_amount);
             //std::debug::print(&first_inscription);
             assert!(inscription::amount(&first_inscription) == epoch_amount, 1);
-            inscription::burn(&mut test_tick_record, first_inscription, test_scenario::ctx(scenario));
+            transfer::public_transfer(first_inscription, admin);
             test_scenario::return_shared(test_tick_record);
         };
 
@@ -81,8 +81,37 @@ module smartinscription::test_smartscription {
         // {
         //     let first_inscription = test_scenario::take_from_sender<inscription::Inscription>(scenario);
         //     assert!(inscription::amount(&first_inscription) >0, 1);
-        //     inscription::burn(first_inscription, test_scenario::ctx(scenario));
+        //     transfer::public_transfer(first_inscription, usera);
         // };
+
+        while(true){
+            test_scenario::next_tx(scenario, admin);
+            {
+                let test_tick_record = test_scenario::take_shared<inscription::TickRecord>(scenario);
+                if (inscription::tick_record_remain(&test_tick_record) == 0) {
+                    assert!(inscription::tick_record_current_supply(&test_tick_record) == total_supply, 1);
+                    test_scenario::return_shared(test_tick_record);
+                    break
+                };
+                let test_sui = coin::mint_for_testing<SUI>(1000, test_scenario::ctx(scenario));
+                inscription::mint(&mut test_tick_record, b"test", test_sui, &c, test_scenario::ctx(scenario));
+                test_scenario::return_shared(test_tick_record); 
+            };
+
+            settle_epoch(scenario, admin, &mut c); 
+        };
+
+        //test burn
+
+        test_scenario::next_tx(scenario, admin);
+        {
+            let test_tick_record = test_scenario::take_shared<inscription::TickRecord>(scenario);
+            let first_inscription = test_scenario::take_from_sender<inscription::Inscription>(scenario);
+            let amount = inscription::amount(&first_inscription);
+            inscription::burn(&mut test_tick_record, first_inscription, test_scenario::ctx(scenario));
+            assert!(inscription::tick_record_current_supply(&test_tick_record) == total_supply - amount, 1);
+            test_scenario::return_shared(test_tick_record); 
+        };
 
         clock::destroy_for_testing(c);
         test_scenario::end(scenario_val);
