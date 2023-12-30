@@ -225,7 +225,7 @@ module smartinscription::inscription {
     public entry fun mint(
         tick_record: &mut TickRecord,
         tick: vector<u8>,
-        mint_fee_coin: Coin<SUI>,
+        fee_coin: Coin<SUI>,
         clk: &Clock,
         ctx: &mut TxContext
     ) {
@@ -233,11 +233,16 @@ module smartinscription::inscription {
         to_uppercase(&mut tick);
         let tick_str: String = utf8(tick);
         assert!(tick_record.tick == tick_str, ErrorTickNotExists);  // parallel optimization
-        assert!(tick_record.mint_fee == coin::value<SUI>(&mint_fee_coin), ETooHighFee);
         assert!(tick_record.remain > 0, ENotEnoughToMint);
         let now_ms = clock::timestamp_ms(clk);
         assert!(now_ms >= tick_record.start_time_ms, ENotStarted);
-
+        let mint_fee_coin = if(coin::value<SUI>(&fee_coin) == tick_record.mint_fee){
+            fee_coin
+        }else{
+            let mint_fee_coin = coin::split<SUI>(&mut fee_coin, tick_record.mint_fee, ctx);
+            transfer::public_transfer(fee_coin, sender);
+            mint_fee_coin
+        };
         let fee_balance: Balance<SUI> = coin::into_balance<SUI>(mint_fee_coin);
 
         let current_epoch = tick_record.current_epoch;

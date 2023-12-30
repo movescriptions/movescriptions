@@ -3,8 +3,6 @@ module smartinscription::test_smartscription {
     use sui::clock;
     use sui::sui::SUI;
     use sui::coin;
-    use sui::tx_context;
-    use sui::transfer;
     use smartinscription::inscription;
 
     #[test]
@@ -51,7 +49,7 @@ module smartinscription::test_smartscription {
         test_scenario::next_tx(scenario, admin);
         {
             let test_tick_record = test_scenario::take_shared<inscription::TickRecord>(scenario);
-            let test_sui = coin::mint_for_testing<SUI>(1000, test_scenario::ctx(scenario));
+            let test_sui = coin::mint_for_testing<SUI>(1001, test_scenario::ctx(scenario));
             inscription::mint(&mut test_tick_record, b"test", test_sui, &c, test_scenario::ctx(scenario));
             test_scenario::return_shared(test_tick_record);
         };
