@@ -43,7 +43,8 @@ module smartinscription::test_smartscription {
         {
             let test_tick_record = test_scenario::take_shared<inscription::TickRecord>(scenario);
             let test_sui = coin::mint_for_testing<SUI>(1000, test_scenario::ctx(scenario));
-            inscription::mint(&mut test_tick_record, b"test", test_sui, &c, test_scenario::ctx(scenario));
+            inscription::mint(&mut test_tick_record, b"test", &mut test_sui, &c, test_scenario::ctx(scenario));
+            transfer::public_transfer(test_sui, admin);
             test_scenario::return_shared(test_tick_record); 
         };
 
@@ -94,7 +95,8 @@ module smartinscription::test_smartscription {
                     break
                 };
                 let test_sui = coin::mint_for_testing<SUI>(1000, test_scenario::ctx(scenario));
-                inscription::mint(&mut test_tick_record, b"test", test_sui, &c, test_scenario::ctx(scenario));
+                inscription::mint(&mut test_tick_record, b"test", &mut test_sui, &c, test_scenario::ctx(scenario));
+                transfer::public_transfer(test_sui, admin);
                 test_scenario::return_shared(test_tick_record); 
             };
 
@@ -125,7 +127,8 @@ module smartinscription::test_smartscription {
         {
             let test_tick_record = test_scenario::take_shared<inscription::TickRecord>(scenario);
             let test_sui = coin::mint_for_testing<SUI>(1000, test_scenario::ctx(scenario));
-            inscription::mint(&mut test_tick_record, b"test", test_sui, c, test_scenario::ctx(scenario));
+            inscription::mint(&mut test_tick_record, b"test", &mut test_sui, c, test_scenario::ctx(scenario));
+            transfer::public_transfer(test_sui, sender);
             test_scenario::return_shared(test_tick_record);
         };
     }
