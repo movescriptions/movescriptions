@@ -151,11 +151,12 @@ module smartinscription::inscription {
             &publisher, keys, values, ctx
         );
         display::update_version(&mut display);
-        transfer::public_transfer(publisher, tx_context::sender(ctx));
-        transfer::public_transfer(display, tx_context::sender(ctx));
+        let deployer: address = tx_context::sender(ctx);
+        transfer::public_transfer(publisher, deployer);
+        transfer::public_transfer(display, deployer);
 
         let img_cap = ImgCap { id: object::new(ctx) };
-        transfer::public_transfer(img_cap, tx_context::sender(ctx));
+        transfer::public_transfer(img_cap, deployer);
     }
 
     fun do_deploy(
@@ -228,7 +229,7 @@ module smartinscription::inscription {
     #[lint_allow(self_transfer)]
     public fun do_mint(
         tick_record: &mut TickRecord,
-        fee_coin: Coin<SUI>,
+        fee_coin: &mut Coin<SUI>,
         clk: &Clock,
         ctx: &mut TxContext
     ) {
@@ -240,13 +241,7 @@ module smartinscription::inscription {
         let sender: address = tx_context::sender(ctx);
         let tick: String = tick_record.tick;
 
-        let mint_fee_coin = if(coin::value<SUI>(&fee_coin) == tick_record.mint_fee){
-            fee_coin
-        }else{
-            let mint_fee_coin = coin::split<SUI>(&mut fee_coin, tick_record.mint_fee, ctx);
-            transfer::public_transfer(fee_coin, sender);
-            mint_fee_coin
-        };
+        let mint_fee_coin = coin::split<SUI>(fee_coin, tick_record.mint_fee, ctx);
         let fee_balance: Balance<SUI> = coin::into_balance<SUI>(mint_fee_coin);
 
         let current_epoch = tick_record.current_epoch;
@@ -254,10 +249,10 @@ module smartinscription::inscription {
             let epoch_record: &mut EpochRecord = table::borrow_mut(&mut tick_record.epoch_records, current_epoch);
             mint_in_epoch(epoch_record, sender, fee_balance);
             // if the epoch is over, we need to settle it and start a new epoch
-            if(epoch_record.start_time_ms + EPOCH_DURATION_MS < now_ms){
+            if (epoch_record.start_time_ms + EPOCH_DURATION_MS < now_ms) {
                 settlement(tick_record, current_epoch, sender,  now_ms, ctx);
             };
-        }else{
+        } else {
             let epoch_record = new_epoch_record(tick, current_epoch, now_ms, sender, fee_balance, ctx);
             table::add(&mut tick_record.epoch_records, current_epoch, epoch_record);
         };
@@ -282,7 +277,7 @@ module smartinscription::inscription {
     public entry fun mint(
         tick_record: &mut TickRecord,
         tick: vector<u8>,
-        fee_coin: Coin<SUI>,
+        fee_coin: &mut Coin<SUI>,
         clk: &Clock,
         ctx: &mut TxContext
     ) {
