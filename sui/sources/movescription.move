@@ -248,7 +248,7 @@ module smartinscription::movescription {
     #[lint_allow(self_transfer)]
     public fun do_mint(
         tick_record: &mut TickRecord,
-        fee_coin: &mut Coin<SUI>,
+        fee_coin: Coin<SUI>,
         clk: &Clock,
         ctx: &mut TxContext
     ) {
@@ -260,7 +260,13 @@ module smartinscription::movescription {
         let sender: address = tx_context::sender(ctx);
         let tick: String = tick_record.tick;
 
-        let mint_fee_coin = coin::split<SUI>(fee_coin, tick_record.mint_fee, ctx);
+        let mint_fee_coin = if(coin::value<SUI>(&fee_coin) == tick_record.mint_fee){
+            fee_coin
+        }else{
+            let mint_fee_coin = coin::split<SUI>(&mut fee_coin, tick_record.mint_fee, ctx);
+            transfer::public_transfer(fee_coin, sender);
+            mint_fee_coin
+        };
         let fee_balance: Balance<SUI> = coin::into_balance<SUI>(mint_fee_coin);
 
         let current_epoch = tick_record.current_epoch;
@@ -296,7 +302,7 @@ module smartinscription::movescription {
     public entry fun mint(
         tick_record: &mut TickRecord,
         tick: vector<u8>,
-        fee_coin: &mut Coin<SUI>,
+        fee_coin: Coin<SUI>,
         clk: &Clock,
         ctx: &mut TxContext
     ) {
