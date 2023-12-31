@@ -25,6 +25,7 @@ module smartinscription::movescription {
     const MAX_MINT_FEE: u64 = 100_000_000_000;
     const EPOCH_DURATION_MS: u64 = 60 * 1000;
     const MIN_EPOCHS: u64 = 60*2;
+    const EPOCH_MAX_PLAYER: u64 = 500;
 
     // ======== Errors =========
     const ErrorTickLengthInvaid: u64 = 1;
@@ -276,8 +277,10 @@ module smartinscription::movescription {
         if (table::contains(&tick_record.epoch_records, current_epoch)){
             let epoch_record: &mut EpochRecord = table::borrow_mut(&mut tick_record.epoch_records, current_epoch);
             mint_in_epoch(epoch_record, sender, fee_balance);
-            // if the epoch is over, we need to settle it and start a new epoch
-            if (epoch_record.start_time_ms + EPOCH_DURATION_MS < now_ms) {
+            // If the epoch is over, we need to settle it and start a new epoch
+            // If the epoch player is full, we do not wait and start a new epoch
+            let epoch_player_len = vector::length(&epoch_record.players);
+            if (epoch_record.start_time_ms + EPOCH_DURATION_MS < now_ms || epoch_player_len >= EPOCH_MAX_PLAYER) {
                 settlement(tick_record, current_epoch, sender,  now_ms, ctx);
             };
         } else {
