@@ -42,6 +42,8 @@ module smartinscription::movescription {
     const EAttachCoinExists: u64 = 16;
     const EInvalidStartTime: u64 = 17;
     const ENotSameMetadata: u64 = 18;
+    const EWrongVersion: u64 = 19;
+
 
     // ======== Types =========
     struct Movescription has key, store {
@@ -188,6 +190,11 @@ module smartinscription::movescription {
         mint_fee: u64,
         ctx: &mut TxContext
     ) {
+        assert!(deploy_record.version <= VERSION, EWrongVersion);
+        if(deploy_record.version < VERSION){
+            //Auto upgrade
+            deploy_record.version = VERSION;
+        };
         to_uppercase(&mut tick);
         let tick_str: String = string(tick);
         let tick_len: u64 = ascii::length(&tick_str);
@@ -252,6 +259,12 @@ module smartinscription::movescription {
         clk: &Clock,
         ctx: &mut TxContext
     ) {
+        assert!(tick_record.version <= VERSION, EWrongVersion);
+        if(tick_record.version < VERSION){
+            //Auto upgrade
+            tick_record.version = VERSION;
+        };
+
         assert!(tick_record.remain > 0, ENotEnoughToMint);
         let now_ms = clock::timestamp_ms(clk);
         assert!(now_ms >= tick_record.start_time_ms, ENotStarted);
