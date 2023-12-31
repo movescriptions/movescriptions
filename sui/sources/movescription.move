@@ -42,6 +42,7 @@ module smartinscription::movescription {
     const EAttachCoinExists: u64 = 16;
     const EInvalidStartTime: u64 = 17;
     const ENotSameMetadata: u64 = 18;
+    const EVersionMismatched: u64 = 19;
 
     // ======== Types =========
     struct Movescription has key, store {
@@ -237,6 +238,7 @@ module smartinscription::movescription {
         clk: &Clock,
         ctx: &mut TxContext
     ) {
+        assert!(deploy_record.version == VERSION, EVersionMismatched);
         let now_ms = clock::timestamp_ms(clk);
         if(start_time_ms == 0){
             start_time_ms = now_ms;
@@ -252,6 +254,7 @@ module smartinscription::movescription {
         clk: &Clock,
         ctx: &mut TxContext
     ) {
+        assert!(tick_record.version == VERSION, EVersionMismatched);
         assert!(tick_record.remain > 0, ENotEnoughToMint);
         let now_ms = clock::timestamp_ms(clk);
         assert!(now_ms >= tick_record.start_time_ms, ENotStarted);
@@ -306,6 +309,7 @@ module smartinscription::movescription {
         clk: &Clock,
         ctx: &mut TxContext
     ) {
+        assert!(tick_record.version == VERSION, EVersionMismatched);
         to_uppercase(&mut tick);
         let tick_str: String = string(tick);
         assert!(tick_record.tick == tick_str, ErrorTickNotExists);  // parallel optimization
@@ -314,6 +318,7 @@ module smartinscription::movescription {
 
     /// Mint by transfer SUI to the TickRecord Object
     public fun mint_by_transfer(tick_record: &mut TickRecord, sent: Receiving<Coin<SUI>>, ctx: &mut TxContext) {
+        assert!(tick_record.version == VERSION, EVersionMismatched);
         std::debug::print(&string(b"mint_by_transfer"));
         assert!(tick_record.remain > 0, ENotEnoughToMint);
         let sender: address = tx_context::sender(ctx); 
@@ -417,6 +422,7 @@ module smartinscription::movescription {
         inscription: Movescription,
         ctx: &mut TxContext
     ) : Coin<SUI> {
+        assert!(tick_record.version == VERSION, EVersionMismatched);
         assert!(inscription.attach_coin == 0, EAttachCoinExists);
         let Movescription { id, amount: amount, tick: _, attach_coin:_, acc, metadata:_ } = inscription;
         tick_record.current_supply = tick_record.current_supply - amount;
@@ -508,6 +514,7 @@ module smartinscription::movescription {
 
     public fun clean_epoch_records(tick_record: &mut TickRecord, _epoch: u64, _ctx: &mut TxContext) {
         assert!(tick_record.remain == 0, EStillMinting);
+        assert!(tick_record.version == VERSION, EVersionMismatched);
         //TODO clean the epoch records
     }
 
