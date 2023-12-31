@@ -594,4 +594,14 @@ module smartinscription::movescription {
         //std::debug::print(&new_acc_amount);
         assert!(new_acc_amount == 4444_4444u64, 0);
     }
+
+    #[test]
+    fun test_split_acc3(){
+        let acc_amount = 100u64;
+        let split_amount = 1u64;
+        let inscription_amount = 100_0000u64;
+        let new_acc_amount = split_acc(acc_amount, split_amount, inscription_amount);
+        //std::debug::print(&new_acc_amount);
+        assert!(new_acc_amount == 1u64, 0);
+    }
 }
