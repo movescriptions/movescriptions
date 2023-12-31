@@ -42,14 +42,13 @@ module smartinscription::test_movescription {
         test_scenario::next_tx(scenario, admin);
         {
             let test_tick_record = test_scenario::take_shared<movescription::TickRecord>(scenario);
-            let test_sui = coin::mint_for_testing<SUI>(1000, test_scenario::ctx(scenario));
-            movescription::mint(&mut test_tick_record, b"test", &mut test_sui, &c, test_scenario::ctx(scenario));
-            transfer::public_transfer(test_sui, admin);
+            let test_sui = coin::mint_for_testing<SUI>(1001, test_scenario::ctx(scenario));
+            movescription::mint(&mut test_tick_record, b"test", test_sui, &c, test_scenario::ctx(scenario));
             test_scenario::return_shared(test_tick_record); 
         };
 
         settle_epoch(scenario, admin, &mut c);
-
+        
         test_scenario::next_tx(scenario, admin);
         {
             let test_tick_record = test_scenario::take_shared<movescription::TickRecord>(scenario);
@@ -95,8 +94,7 @@ module smartinscription::test_movescription {
                     break
                 };
                 let test_sui = coin::mint_for_testing<SUI>(1000, test_scenario::ctx(scenario));
-                movescription::mint(&mut test_tick_record, b"test", &mut test_sui, &c, test_scenario::ctx(scenario));
-                transfer::public_transfer(test_sui, admin);
+                movescription::mint(&mut test_tick_record, b"test", test_sui, &c, test_scenario::ctx(scenario));
                 test_scenario::return_shared(test_tick_record); 
             };
 
@@ -127,8 +125,7 @@ module smartinscription::test_movescription {
         {
             let test_tick_record = test_scenario::take_shared<movescription::TickRecord>(scenario);
             let test_sui = coin::mint_for_testing<SUI>(1000, test_scenario::ctx(scenario));
-            movescription::mint(&mut test_tick_record, b"test", &mut test_sui, c, test_scenario::ctx(scenario));
-            transfer::public_transfer(test_sui, sender);
+            movescription::mint(&mut test_tick_record, b"test", test_sui, c, test_scenario::ctx(scenario));
             test_scenario::return_shared(test_tick_record);
         };
     }
