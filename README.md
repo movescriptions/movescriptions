@@ -29,6 +29,9 @@ Below is the prototype code for the Movescriptions protocol. Note that different
 * [starcoin](./starcoin/)
 * [rooch](./rooch/)
 
+## Deployment Information
+
+* [Sui] PackageID: [0x830fe26674dc638af7c3d84030e2575f44a2bdc1baa1f4757cfe010a4b106b6a](https://suiexplorer.com/object/0x830fe26674dc638af7c3d84030e2575f44a2bdc1baa1f4757cfe010a4b106b6a)
 
 ## Contribution Guidelines
 

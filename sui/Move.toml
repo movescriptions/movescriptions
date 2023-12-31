@@ -2,9 +2,10 @@
 name = "SmartInscription"
 authors = ["Pika", "10xhunter", "jolestar", "jojoo-eth"]
 version = "0.0.1"
+published-at = "0x830fe26674dc638af7c3d84030e2575f44a2bdc1baa1f4757cfe010a4b106b6a"
 
 [dependencies]
-Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
 
 [addresses]
 smartinscription = "0x0"
