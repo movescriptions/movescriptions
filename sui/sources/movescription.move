@@ -441,23 +441,31 @@ module smartinscription::movescription {
         ctx: &mut TxContext
     ) : Movescription {
         assert!(0 < amount && amount < inscription.amount, EInvalidAmount);
-        inscription.amount = inscription.amount - amount;
-        let fee_balance_amount = balance::value(&inscription.acc);
-        let new_ins_fee_balance = if (fee_balance_amount == 0) {
+        let acc_amount = balance::value(&inscription.acc);
+        let new_ins_fee_balance = if (acc_amount == 0) {
             balance::zero<SUI>()
         } else {
-            let new_ins_fee_balance_amount = ((((fee_balance_amount as u128) * (amount as u128)) / (inscription.amount as u128)) as u64);
-            if (new_ins_fee_balance_amount == 0) {
-                new_ins_fee_balance_amount = 1;
+            let new_ins_acc_amount = split_acc(acc_amount, amount, inscription.amount);
+            if (new_ins_acc_amount == 0) {
+                new_ins_acc_amount = 1;
             };
-            balance::split<SUI>(&mut inscription.acc, new_ins_fee_balance_amount)
+            balance::split<SUI>(&mut inscription.acc, new_ins_acc_amount)
         };
+        inscription.amount = inscription.amount - amount;
         new_movescription(
             amount, 
             inscription.tick,
             new_ins_fee_balance,
             inscription.metadata,
             ctx)
+    }
+
+    fun split_acc(acc_amount: u64, split_amount: u64, inscription_amount: u64): u64 {
+        let new_acc_amount = ((((acc_amount as u128) * (split_amount as u128)) / (inscription_amount as u128)) as u64);
+        if (new_acc_amount == 0) {
+            new_acc_amount = 1;
+        };
+        new_acc_amount
     }
 
     #[lint_allow(self_transfer)]
@@ -568,4 +576,22 @@ module smartinscription::movescription {
         init(MOVESCRIPTION{}, ctx);
     }
 
+    #[test]
+    fun test_split_acc(){
+        let acc_amount = 1000u64;
+        let split_amount = 100u64;
+        let inscription_amount = 1000u64;
+        let new_acc_amount = split_acc(acc_amount, split_amount, inscription_amount);
+        assert!(new_acc_amount == 100u64, 0);
+    }
+
+    #[test]
+    fun test_split_acc2(){
+        let acc_amount = 4_0000_0000u64;
+        let split_amount = 1111_1111u64;
+        let inscription_amount = 9999_9999u64;
+        let new_acc_amount = split_acc(acc_amount, split_amount, inscription_amount);
+        //std::debug::print(&new_acc_amount);
+        assert!(new_acc_amount == 4444_4444u64, 0);
+    }
 }
