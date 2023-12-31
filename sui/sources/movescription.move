@@ -37,7 +37,7 @@ module smartinscription::movescription {
     const ENotSameTick: u64 = 10;
     //const EBalanceDONE: u64 = 11;
     const ETooHighFee: u64 = 12;
-    const EStillMinting: u64 = 13;
+    //const EStillMinting: u64 = 13;
     const ENotStarted: u64 = 14;
     const EInvalidEpoch: u64 = 15;
     const EAttachCoinExists: u64 = 16;
@@ -319,23 +319,6 @@ module smartinscription::movescription {
         do_mint(tick_record, fee_coin, clk, ctx);
     }
 
-    // Mint by transfer SUI to the TickRecord Object
-    //TODO need to figure out why this function can not be called
-    // public fun mint_by_transfer(tick_record: &mut TickRecord, sent: Receiving<Coin<SUI>>, ctx: &mut TxContext) {
-    //     assert!(tick_record.version == VERSION, EVersionMismatched);
-    //     std::debug::print(&string(b"mint_by_transfer"));
-    //     assert!(tick_record.remain > 0, ENotEnoughToMint);
-    //     let sender: address = tx_context::sender(ctx); 
-    //     let coin = transfer::public_receive(&mut tick_record.id, sent);
-    //     assert!(coin::value<SUI>(&coin) == tick_record.mint_fee, ETooHighFee);
-    //     let current_epoch = tick_record.current_epoch;
-    //     assert!(table::contains(&tick_record.epoch_records, current_epoch), ENotStarted);
-        
-    //     tick_record.total_transactions = tick_record.total_transactions + 1;
-    //     let epoch_record: &mut EpochRecord = table::borrow_mut(&mut tick_record.epoch_records, current_epoch);
-    //     mint_in_epoch(epoch_record, sender, coin::into_balance<SUI>(coin));
-    // }
-
     fun new_epoch_record(tick: String, epoch: u64, now_ms: u64, sender: address, fee_balance: Balance<SUI>, ctx: &mut TxContext) : EpochRecord{
         let mint_fees = table::new(ctx);
         table::add(&mut mint_fees, sender, fee_balance);
@@ -491,35 +474,6 @@ module smartinscription::movescription {
     // Interface reserved for future SFT transactions
     public fun inject_sui(inscription: &mut Movescription, receive: Coin<SUI>) {
         coin::put(&mut inscription.acc, receive);
-    }
-
-    // public fun accept_coin<T>(inscription: &mut Movescription, sent: Receiving<Coin<T>>) {
-    //     let coin = transfer::public_receive(&mut inscription.id, sent);
-    //     let inscription_balance_type = InscriptionBalance<T>{};
-    //     let inscription_uid = &mut inscription.id;
-
-    //     if (df::exists_(inscription_uid, inscription_balance_type)) {
-    //         let balance: &mut Coin<T> = df::borrow_mut(inscription_uid, inscription_balance_type);
-    //         coin::join(balance, coin);
-    //     } else {
-    //         inscription.attach_coin = inscription.attach_coin + 1;
-    //         df::add(inscription_uid, inscription_balance_type, coin);
-    //     }
-    // }
-
-    // public fun withdraw_all<T>(inscription: &mut Movescription): Coin<T> {
-    //     let inscription_balance_type = InscriptionBalance<T>{};
-    //     let inscription_uid = &mut inscription.id;
-    //     assert!(df::exists_(inscription_uid, inscription_balance_type), EBalanceDONE);
-    //     inscription.attach_coin = inscription.attach_coin - 1;
-    //     let return_coin: Coin<T> = df::remove(inscription_uid, inscription_balance_type);
-    //     return_coin
-    // }
-
-    public fun clean_epoch_records(tick_record: &mut TickRecord, _epoch: u64, _ctx: &mut TxContext) {
-        assert!(tick_record.remain == 0, EStillMinting);
-        assert!(tick_record.version == VERSION, EVersionMismatched);
-        //TODO clean the epoch records
     }
 
     // ======== Movescription Read Functions =========
