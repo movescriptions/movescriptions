@@ -489,28 +489,28 @@ module smartinscription::movescription {
         coin::put(&mut inscription.acc, receive);
     }
 
-    public fun accept_coin<T>(inscription: &mut Movescription, sent: Receiving<Coin<T>>) {
-        let coin = transfer::public_receive(&mut inscription.id, sent);
-        let inscription_balance_type = InscriptionBalance<T>{};
-        let inscription_uid = &mut inscription.id;
+    // public fun accept_coin<T>(inscription: &mut Movescription, sent: Receiving<Coin<T>>) {
+    //     let coin = transfer::public_receive(&mut inscription.id, sent);
+    //     let inscription_balance_type = InscriptionBalance<T>{};
+    //     let inscription_uid = &mut inscription.id;
 
-        if (df::exists_(inscription_uid, inscription_balance_type)) {
-            let balance: &mut Coin<T> = df::borrow_mut(inscription_uid, inscription_balance_type);
-            coin::join(balance, coin);
-        } else {
-            inscription.attach_coin = inscription.attach_coin + 1;
-            df::add(inscription_uid, inscription_balance_type, coin);
-        }
-    }
+    //     if (df::exists_(inscription_uid, inscription_balance_type)) {
+    //         let balance: &mut Coin<T> = df::borrow_mut(inscription_uid, inscription_balance_type);
+    //         coin::join(balance, coin);
+    //     } else {
+    //         inscription.attach_coin = inscription.attach_coin + 1;
+    //         df::add(inscription_uid, inscription_balance_type, coin);
+    //     }
+    // }
 
-    public fun withdraw_all<T>(inscription: &mut Movescription): Coin<T> {
-        let inscription_balance_type = InscriptionBalance<T>{};
-        let inscription_uid = &mut inscription.id;
-        assert!(df::exists_(inscription_uid, inscription_balance_type), EBalanceDONE);
-        inscription.attach_coin = inscription.attach_coin - 1;
-        let return_coin: Coin<T> = df::remove(inscription_uid, inscription_balance_type);
-        return_coin
-    }
+    // public fun withdraw_all<T>(inscription: &mut Movescription): Coin<T> {
+    //     let inscription_balance_type = InscriptionBalance<T>{};
+    //     let inscription_uid = &mut inscription.id;
+    //     assert!(df::exists_(inscription_uid, inscription_balance_type), EBalanceDONE);
+    //     inscription.attach_coin = inscription.attach_coin - 1;
+    //     let return_coin: Coin<T> = df::remove(inscription_uid, inscription_balance_type);
+    //     return_coin
+    // }
 
     public fun clean_epoch_records(tick_record: &mut TickRecord, _epoch: u64, _ctx: &mut TxContext) {
         assert!(tick_record.remain == 0, EStillMinting);
