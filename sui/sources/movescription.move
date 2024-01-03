@@ -19,7 +19,7 @@ module smartinscription::movescription {
 
 
     // ======== Constants =========
-    const VERSION: u64 = 1;
+    const VERSION: u64 = 2;
     const MAX_TICK_LENGTH: u64 = 32;
     const MIN_TICK_LENGTH: u64 = 4;
     const MAX_MINT_FEE: u64 = 100_000_000_000;
@@ -250,7 +250,7 @@ module smartinscription::movescription {
         clk: &Clock,
         ctx: &mut TxContext
     ) {
-        assert!(deploy_record.version == VERSION, EVersionMismatched);
+        assert!(deploy_record.version <= VERSION, EVersionMismatched);
         let now_ms = clock::timestamp_ms(clk);
         if(start_time_ms == 0){
             start_time_ms = now_ms;
@@ -346,7 +346,7 @@ module smartinscription::movescription {
         clk: &Clock,
         ctx: &mut TxContext
     ) {
-        assert!(tick_record.version == VERSION, EVersionMismatched);
+        assert!(tick_record.version <= VERSION, EVersionMismatched);
         to_uppercase(&mut tick);
         let tick_str: String = string(tick);
         assert!(tick_record.tick == tick_str, ErrorTickNotExists);  // parallel optimization
@@ -508,6 +508,22 @@ module smartinscription::movescription {
     // Interface reserved for future SFT transactions
     public fun inject_sui(inscription: &mut Movescription, receive: Coin<SUI>) {
         coin::put(&mut inscription.acc, receive);
+    }
+
+    public entry fun inject_sui_entry(inscription: &mut Movescription, receive: Coin<SUI>) {
+        inject_sui(inscription, receive);
+    }
+
+    // ===== Migrate functions =====
+
+    public fun migrate_deploy_record(deploy_record: &mut DeployRecord) {
+        assert!(deploy_record.version <= VERSION, EVersionMismatched);
+        deploy_record.version = VERSION;
+    }
+
+    public fun migrate_tick_record(tick_record: &mut TickRecord) {
+        assert!(tick_record.version <= VERSION, EVersionMismatched);
+        tick_record.version = VERSION;
     }
 
     // ======== Movescription Read Functions =========
