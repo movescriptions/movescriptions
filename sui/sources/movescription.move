@@ -373,8 +373,8 @@ module smartinscription::movescription {
         let tick = tick_record.tick;
         let epoch_record: &mut EpochRecord = table::borrow_mut(&mut tick_record.epoch_records, epoch);
         let epoch_amount: u64 = tick_record.total_supply / tick_record.epoch_count;
-        
-        if (epoch_amount > tick_record.remain) {
+        // include the remainder to the last epoch
+        if (epoch_amount * 2 > tick_record.remain) {
             epoch_amount = tick_record.remain;
         };
         
@@ -399,6 +399,13 @@ module smartinscription::movescription {
                 transfer::public_transfer(coin::from_balance<SUI>(fee_balance, ctx), player);
             };
             idx = idx + 1;
+        };
+        let real_epoch_amount = per_player_amount * players_len;
+        if(real_epoch_amount < epoch_amount){
+            // if the real_epoch_amount is less than epoch_amount, we send the remainder to the settle_user as a reward
+            let remainder = epoch_amount - real_epoch_amount;
+            let ins: Movescription = new_movescription(remainder, tick, balance::zero<SUI>(), option::none(), ctx);
+            transfer::public_transfer(ins, settle_user);
         };
         // The mint_fees should be empty, this should not happen, add assert for debug
         // We can remove this assert after we are sure there is no bug

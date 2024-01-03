@@ -100,6 +100,7 @@ module smartinscription::test_movescription {
                 let test_tick_record = test_scenario::take_shared<movescription::TickRecord>(scenario);
                 if (movescription::tick_record_remain(&test_tick_record) == 0) {
                     assert!(movescription::tick_record_current_supply(&test_tick_record) == total_supply, 1);
+                    assert!(movescription::tick_record_current_epoch(&test_tick_record) == movescription::tick_record_epoch_count(&test_tick_record)-1, 2);
                     test_scenario::return_shared(test_tick_record);
                     break
                 };
