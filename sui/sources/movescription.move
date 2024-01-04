@@ -406,6 +406,8 @@ module smartinscription::movescription {
             let remainder = epoch_amount - real_epoch_amount;
             let ins: Movescription = new_movescription(remainder, tick, balance::zero<SUI>(), option::none(), ctx);
             transfer::public_transfer(ins, settle_user);
+            tick_record.remain = tick_record.remain - remainder;
+            tick_record.current_supply = tick_record.current_supply + remainder;
         };
         // The mint_fees should be empty, this should not happen, add assert for debug
         // We can remove this assert after we are sure there is no bug
