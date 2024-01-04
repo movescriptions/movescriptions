@@ -289,7 +289,7 @@ module smartinscription::movescription {
         clk: &Clock,
         ctx: &mut TxContext
     ) {
-        assert!(tick_record.version == VERSION, EVersionMismatched);
+        assert!(tick_record.version <= VERSION, EVersionMismatched);
         assert!(tick_record.remain > 0, ENotEnoughToMint);
         let now_ms = clock::timestamp_ms(clk);
         assert!(now_ms >= tick_record.start_time_ms, ENotStarted);
@@ -346,7 +346,6 @@ module smartinscription::movescription {
         clk: &Clock,
         ctx: &mut TxContext
     ) {
-        assert!(tick_record.version <= VERSION, EVersionMismatched);
         to_uppercase(&mut tick);
         let tick_str: String = string(tick);
         assert!(tick_record.tick == tick_str, ErrorTickNotExists);  // parallel optimization
