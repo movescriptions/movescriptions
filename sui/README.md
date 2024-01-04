@@ -7,7 +7,7 @@
 
 ## Types:
 
-* Movescription: 0x830fe26674dc638af7c3d84030e2575f44a2bdc1baa1f4757cfe010a4b106b6a::movescriptions::Movescription
+* Movescription: 0x830fe26674dc638af7c3d84030e2575f44a2bdc1baa1f4757cfe010a4b106b6a::movescription::Movescription
 
 ## Upgrade to v2
 
