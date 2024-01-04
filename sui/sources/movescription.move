@@ -2,14 +2,16 @@ module smartinscription::movescription {
     use std::ascii::{Self, string, String};
     use std::vector;
     use std::option::{Self, Option};
+    use std::type_name::{Self, TypeName};
     use sui::object::{Self, UID, ID};
     use sui::transfer;
-    //use sui::dynamic_field as df;
+    use sui::dynamic_object_field as dof;
     use sui::tx_context::{Self, TxContext};
     use sui::event::emit;
     use sui::coin::{Self, Coin};
     use sui::balance::{Self, Balance};
     use sui::table::{Self, Table};
+    use sui::bag::{Self, Bag};
     use sui::sui::SUI;
     use sui::clock::{Self, Clock};
     use sui::package;
@@ -31,6 +33,7 @@ module smartinscription::movescription {
     const BASE_EPOCH_COUNT_FEE: u64 = 100;
     const PROTOCOL_TICK: vector<u8> = b"MOVE";
     const PROTOCOL_START_TIME_MS: u64 = 1704038400*1000;
+    const COIN_BAG: vector<u8> = b"coin_bag";
 
     // ======== Errors =========
     const ErrorTickLengthInvaid: u64 = 1;
@@ -42,7 +45,7 @@ module smartinscription::movescription {
     const ENotSameTick: u64 = 10;
     //const EBalanceDONE: u64 = 11;
     const ETooHighFee: u64 = 12;
-    //const EStillMinting: u64 = 13;
+    const ECotainsCoinBag: u64 = 13;
     const ENotStarted: u64 = 14;
     const EInvalidEpoch: u64 = 15;
     const EAttachCoinExists: u64 = 16;
@@ -438,6 +441,7 @@ module smartinscription::movescription {
         object::delete(id);
     }
 
+    #[lint_allow(self_transfer)]
     public fun do_burn(
         tick_record: &mut TickRecord,
         inscription: Movescription,
@@ -445,6 +449,10 @@ module smartinscription::movescription {
     ) : Coin<SUI> {
         assert!(tick_record.version == VERSION, EVersionMismatched);
         assert!(inscription.attach_coin == 0, EAttachCoinExists);
+        if (dof::exists_(&inscription.id, COIN_BAG)) {
+            let coin_bag: Bag = dof::remove<vector<u8>, Bag>(&mut inscription.id, COIN_BAG);
+            transfer::public_transfer(coin_bag, tx_context::sender(ctx));
+        };
         let Movescription { id, amount: amount, tick: _, attach_coin:_, acc, metadata:_ } = inscription;
         tick_record.current_supply = tick_record.current_supply - amount;
         let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
@@ -468,6 +476,7 @@ module smartinscription::movescription {
         ctx: &mut TxContext
     ) : Movescription {
         assert!(0 < amount && amount < inscription.amount, EInvalidAmount);
+        assert!(!dof::exists_(&inscription.id, COIN_BAG), ECotainsCoinBag);
         let acc_amount = balance::value(&inscription.acc);
         let new_ins_fee_balance = if (acc_amount == 0) {
             balance::zero<SUI>()
@@ -508,6 +517,17 @@ module smartinscription::movescription {
     // Interface reserved for future SFT transactions
     public fun inject_sui(inscription: &mut Movescription, receive: Coin<SUI>) {
         coin::put(&mut inscription.acc, receive);
+    }
+
+    public(friend) fun add_coin_bag(inscription: &mut Movescription, ctx: &mut TxContext) {
+        let coin_bag: Bag = bag::new(ctx);
+        dof::add(&mut inscription.id, COIN_BAG, coin_bag);
+    }
+
+    public(friend) fun inject_to_coin_bag<T>(inscription: &mut Movescription, receive: Coin<T>) {
+        let coin_bag: &mut Bag = dof::borrow_mut<vector<u8>, Bag>(&mut inscription.id, COIN_BAG);
+        let coin_type: TypeName = type_name::get<T>();
+        bag::add(coin_bag, coin_type, receive);
     }
 
     // ======== Movescription Read Functions =========
