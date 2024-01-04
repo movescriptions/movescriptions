@@ -21,7 +21,7 @@ module smartinscription::movescription {
 
 
     // ======== Constants =========
-    const VERSION: u64 = 1;
+    const VERSION: u64 = 2;
     const MAX_TICK_LENGTH: u64 = 32;
     const MIN_TICK_LENGTH: u64 = 4;
     const MAX_MINT_FEE: u64 = 100_000_000_000;
@@ -253,7 +253,7 @@ module smartinscription::movescription {
         clk: &Clock,
         ctx: &mut TxContext
     ) {
-        assert!(deploy_record.version == VERSION, EVersionMismatched);
+        assert!(deploy_record.version <= VERSION, EVersionMismatched);
         let now_ms = clock::timestamp_ms(clk);
         if(start_time_ms == 0){
             start_time_ms = now_ms;
@@ -349,7 +349,7 @@ module smartinscription::movescription {
         clk: &Clock,
         ctx: &mut TxContext
     ) {
-        assert!(tick_record.version == VERSION, EVersionMismatched);
+        assert!(tick_record.version <= VERSION, EVersionMismatched);
         to_uppercase(&mut tick);
         let tick_str: String = string(tick);
         assert!(tick_record.tick == tick_str, ErrorTickNotExists);  // parallel optimization
@@ -376,8 +376,8 @@ module smartinscription::movescription {
         let tick = tick_record.tick;
         let epoch_record: &mut EpochRecord = table::borrow_mut(&mut tick_record.epoch_records, epoch);
         let epoch_amount: u64 = tick_record.total_supply / tick_record.epoch_count;
-        
-        if (epoch_amount > tick_record.remain) {
+        // include the remainder to the last epoch
+        if (epoch_amount * 2 > tick_record.remain) {
             epoch_amount = tick_record.remain;
         };
         
@@ -402,6 +402,15 @@ module smartinscription::movescription {
                 transfer::public_transfer(coin::from_balance<SUI>(fee_balance, ctx), player);
             };
             idx = idx + 1;
+        };
+        let real_epoch_amount = per_player_amount * players_len;
+        if(real_epoch_amount < epoch_amount){
+            // if the real_epoch_amount is less than epoch_amount, we send the remainder to the settle_user as a reward
+            let remainder = epoch_amount - real_epoch_amount;
+            let ins: Movescription = new_movescription(remainder, tick, balance::zero<SUI>(), option::none(), ctx);
+            transfer::public_transfer(ins, settle_user);
+            tick_record.remain = tick_record.remain - remainder;
+            tick_record.current_supply = tick_record.current_supply + remainder;
         };
         // The mint_fees should be empty, this should not happen, add assert for debug
         // We can remove this assert after we are sure there is no bug
@@ -519,6 +528,7 @@ module smartinscription::movescription {
         coin::put(&mut inscription.acc, receive);
     }
 
+
     public(friend) fun add_coin_bag(inscription: &mut Movescription, ctx: &mut TxContext) {
         let coin_bag: Bag = bag::new(ctx);
         dof::add(&mut inscription.id, COIN_BAG, coin_bag);
@@ -528,6 +538,17 @@ module smartinscription::movescription {
         let coin_bag: &mut Bag = dof::borrow_mut<vector<u8>, Bag>(&mut inscription.id, COIN_BAG);
         let coin_type: TypeName = type_name::get<T>();
         bag::add(coin_bag, coin_type, receive);
+
+    // ===== Migrate functions =====
+
+    entry fun migrate_deploy_record(deploy_record: &mut DeployRecord) {
+        assert!(deploy_record.version <= VERSION, EVersionMismatched);
+        deploy_record.version = VERSION;
+    }
+
+    entry fun migrate_tick_record(tick_record: &mut TickRecord) {
+        assert!(tick_record.version <= VERSION, EVersionMismatched);
+        tick_record.version = VERSION;
     }
 
     // ======== Movescription Read Functions =========
