@@ -1,5 +1,6 @@
 #[test_only]
 module smartinscription::test_movescription {
+    use std::option;
     use sui::clock;
     use sui::sui::SUI;
     use sui::coin;
@@ -119,7 +120,7 @@ module smartinscription::test_movescription {
             let test_tick_record = test_scenario::take_shared<movescription::TickRecord>(scenario);
             let first_inscription = test_scenario::take_from_sender<Movescription>(scenario);
             let amount = movescription::amount(&first_inscription);
-            movescription::burn_v2(&mut test_tick_record, first_inscription, usera, b"love and peace", test_scenario::ctx(scenario));
+            movescription::burn_v2(&mut test_tick_record, first_inscription, b"love and peace", option::some<address>(usera),test_scenario::ctx(scenario));
             assert!(movescription::tick_record_current_supply(&test_tick_record) == total_supply - amount, 1);
             test_scenario::return_shared(test_tick_record); 
         };
