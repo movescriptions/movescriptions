@@ -132,8 +132,8 @@ module smartinscription::movescription {
     struct BurnTick has copy, drop {
         sender: address,
         amount: u64,
-        for: address,
         message: string::String,
+        for: Option<address>,
     }
 
     struct NewEpoch has copy, drop {
@@ -477,9 +477,9 @@ module smartinscription::movescription {
 
     public fun do_burn_v2(
         tick_record: &mut TickRecord,
-        inscription: Movescription,
-        for: address,
+        inscription: Movescription,        
         message: vector<u8>,
+        for: Option<address>,
         ctx: &mut TxContext
     ) : (Coin<SUI>, BurnReceipt) {
         assert!(tick_record.version == VERSION, EVersionMismatched);
@@ -498,9 +498,9 @@ module smartinscription::movescription {
         emit({
             BurnTick {
                 sender: tx_context::sender(ctx),
-                amount: amount,
-                for: for,
+                amount: amount,                
                 message: string::utf8(message),
+                for: for,
             }
         });
 
@@ -519,12 +519,12 @@ module smartinscription::movescription {
     #[lint_allow(self_transfer)]
     public entry fun burn_v2(
         tick_record: &mut TickRecord,
-        inscription: Movescription,
-        for: address,
+        inscription: Movescription,        
         message: vector<u8>,
+        for: Option<address>,
         ctx: &mut TxContext
     ) {
-        let (acc, receipt) = do_burn_v2(tick_record, inscription, for, message, ctx);
+        let (acc, receipt) = do_burn_v2(tick_record, inscription, message, for, ctx);
         transfer::public_transfer(acc, tx_context::sender(ctx));
         transfer::public_transfer(receipt, tx_context::sender(ctx));
     }
