@@ -1,5 +1,6 @@
 module smartinscription::movescription {
     use std::ascii::{Self, string, String};
+    use std::string;
     use std::vector;
     use std::option::{Self, Option};
     use sui::object::{Self, UID, ID};
@@ -106,6 +107,12 @@ module smartinscription::movescription {
         total_transactions: u64,
     }
 
+    struct BurnReceipt has key, store {
+        id: UID,
+        tick: String,
+        amount: u64,
+    }
+
     // ======== Events =========
     struct DeployTick has copy, drop {
         id: ID,
@@ -120,6 +127,13 @@ module smartinscription::movescription {
     struct MintTick has copy, drop {
         sender: address,
         tick: String,
+    }
+
+    struct BurnTick has copy, drop {
+        sender: address,
+        amount: u64,
+        for: address,
+        message: string::String,
     }
 
     struct NewEpoch has copy, drop {
@@ -446,7 +460,8 @@ module smartinscription::movescription {
         object::delete(id);
     }
 
-    public fun do_burn(
+    /// Internal using for burn Movescription without emiting event and BurnRecipt
+    fun do_burn(
         tick_record: &mut TickRecord,
         inscription: Movescription,
         ctx: &mut TxContext
@@ -460,14 +475,58 @@ module smartinscription::movescription {
         acc
     }
 
-    #[lint_allow(self_transfer)]
-    public entry fun burn(
+    public fun do_burn_v2(
         tick_record: &mut TickRecord,
         inscription: Movescription,
+        for: address,
+        message: vector<u8>,
+        ctx: &mut TxContext
+    ) : (Coin<SUI>, BurnReceipt) {
+        assert!(tick_record.version == VERSION, EVersionMismatched);
+        assert!(inscription.attach_coin == 0, EAttachCoinExists);
+        let Movescription { id, amount: amount, tick: _, attach_coin:_, acc, metadata:_ } = inscription;
+        tick_record.current_supply = tick_record.current_supply - amount;
+        let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
+        object::delete(id);
+
+        let receipt = BurnReceipt {
+            id: object::new(ctx),
+            tick: tick_record.tick,
+            amount: amount,
+        };
+        
+        emit({
+            BurnTick {
+                sender: tx_context::sender(ctx),
+                amount: amount,
+                for: for,
+                message: string::utf8(message),
+            }
+        });
+
+        (acc, receipt)
+    }
+
+    #[lint_allow(self_transfer)]
+    public entry fun burn(
+        _tick_record: &mut TickRecord,
+        _inscription: Movescription,
+        _ctx: &mut TxContext
+    ) {
+        abort EDeprecatedFunction
+    }
+
+    #[lint_allow(self_transfer)]
+    public entry fun burn_v2(
+        tick_record: &mut TickRecord,
+        inscription: Movescription,
+        for: address,
+        message: vector<u8>,
         ctx: &mut TxContext
     ) {
-        let acc = do_burn(tick_record, inscription, ctx);
+        let (acc, receipt) = do_burn_v2(tick_record, inscription, for, message, ctx);
         transfer::public_transfer(acc, tx_context::sender(ctx));
+        transfer::public_transfer(receipt, tx_context::sender(ctx));
     }
 
     public fun do_split(
