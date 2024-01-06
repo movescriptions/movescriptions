@@ -133,7 +133,6 @@ module smartinscription::movescription {
         sender: address,
         amount: u64,
         message: string::String,
-        for: Option<address>,
     }
 
     struct NewEpoch has copy, drop {
@@ -479,7 +478,6 @@ module smartinscription::movescription {
         tick_record: &mut TickRecord,
         inscription: Movescription,        
         message: vector<u8>,
-        for: Option<address>,
         ctx: &mut TxContext
     ) : (Coin<SUI>, BurnReceipt) {
         assert!(tick_record.version == VERSION, EVersionMismatched);
@@ -500,7 +498,6 @@ module smartinscription::movescription {
                 sender: tx_context::sender(ctx),
                 amount: amount,                
                 message: string::utf8(message),
-                for: for,
             }
         });
 
@@ -521,10 +518,9 @@ module smartinscription::movescription {
         tick_record: &mut TickRecord,
         inscription: Movescription,        
         message: vector<u8>,
-        for: Option<address>,
         ctx: &mut TxContext
     ) {
-        let (acc, receipt) = do_burn_v2(tick_record, inscription, message, for, ctx);
+        let (acc, receipt) = do_burn_v2(tick_record, inscription, message, ctx);
         transfer::public_transfer(acc, tx_context::sender(ctx));
         transfer::public_transfer(receipt, tx_context::sender(ctx));
     }
