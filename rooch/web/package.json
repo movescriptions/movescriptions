@@ -9,11 +9,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ethersproject/bytes": "^5.7.0",
+    "@ethersproject/keccak256": "^5.7.0",
     "@hazae41/keccak256": "^1.0.8",
     "@roochnetwork/rooch-sdk": "^0.0.6",
+    "@types/uuid": "^9.0.7",
+    "keccak-wasm": "^0.10.3",
     "keccak256-webgpu": "^0.1.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",

@@ -1,7 +1,7 @@
 
-import { Keccak256 } from "@hazae41/keccak256"
-
-Keccak256.set(await Keccak256.fromMorax())
+import { arrayify } from "@ethersproject/bytes";
+import { keccak256 } from "@ethersproject/keccak256"
+import { MintPayload } from "../types"
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const ctx: Worker = self as any;
@@ -15,9 +15,9 @@ ctx.onmessage = async (event: MessageEvent<any>) => {
 
   try {
     switch (type) {
-      case 'start':
+      case 'mint':
         isMine = true;
-        await searchNonce(payload.powInput, payload.difficulty);
+        await searchNonce(payload);
         break;
       case 'stop':
         isMine = false;
@@ -30,20 +30,59 @@ ctx.onmessage = async (event: MessageEvent<any>) => {
   }
 }
 
-const searchNonce = async (powInput: Uint8Array, difficulty: number) => {
-  let nonce = new Date().getTime()
-  while(powInput) {
-    const data = hash(appendU64ToUint8Array(hash(powInput), BigInt(nonce)))
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function notifyProgress(id: string, progress: string) {
+  ctx.postMessage({
+    type: 'progress',
+    payload: {
+      id: id,
+      progress: progress,
+    }
+  });
+}
+
+async function notifyEnd(id: string, nonce: number | undefined) {
+  ctx.postMessage({
+    type: 'end',
+    payload: {
+      id: id,
+      nonce: nonce,
+    }
+  });
+}
+
+const searchNonce = async (payload: MintPayload) => {
+  const { id, powData, difficulty, seqStart, seqEnd } = payload;
+  let lastTime = new Date().getTime();
+  let nonce = seqStart
+
+  while(nonce < seqEnd) {
+    const data = hash(appendU64ToUint8Array(hash(powData), BigInt(nonce)))
     if (matchDifficulty(data, difficulty)) {
-      return nonce
+      notifyEnd(id, nonce)
+      return
+    }
+
+    if (nonce % 10000 == 0) {
+      const now = new Date().getTime();
+      const hashRate = Math.floor(10000 / ((now - lastTime) / 1000));
+      lastTime = now;
+
+      notifyProgress(id, `finding nonce, hash rate: ${hashRate}/s`)
+      await sleep(0)
     }
 
     nonce++;
   }
+
+  notifyEnd(id, undefined)
 }
 
-const hash = (data: Uint8Array): Uint8Array=>{
-  return Keccak256.get().tryHash(data).unwrap().copyAndDispose()
+const hash = (data: Uint8Array): Uint8Array =>{
+  return arrayify(keccak256(data))
 }
 
 function appendU64ToUint8Array(array: Uint8Array, u64: bigint): Uint8Array {

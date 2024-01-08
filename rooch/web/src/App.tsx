@@ -7,7 +7,7 @@ import {
   IAccount,
 } from '@roochnetwork/rooch-sdk'
 
-import { MinerManager, IMinerTask, IMintResult } from './miner'
+import { MinerManager, IMinerTask, IMintResult, ProgressPayload } from './miner'
 
 const moveScriptionAddress = `${import.meta.env.VITE_MOVE_SCRIPTIONS_ADDRESS}`
 const mrc20PowInputFunc = `${moveScriptionAddress}::movescription::pow_input`
@@ -63,7 +63,7 @@ function App() {
           powData: powInput,
           difficulty: difficulty,
           timestamp: new Date().getTime(),
-          onSuccess: (result: IMintResult)=>{
+          onEnd: (result: IMintResult)=>{
             minerManager.stop()
             resolve(result);
           },
@@ -71,8 +71,8 @@ function App() {
             minerManager.stop()
             reject(err)
           },
-          onProgress: (msg: string)=>{
-            setProgress(msg)
+          onProgress: (payload: ProgressPayload)=>{
+            setProgress(payload.progress)
           }
         }
     
@@ -88,7 +88,7 @@ function App() {
     setMinting(true)
 
     try {
-      const nonce = await searchNonce(account, "move", 1000, 2)
+      const nonce = await searchNonce(account, "move", 1000, 9)
       console.log("found nonce:", nonce);
 
       const tx = await account.runFunction(mrc20MintFunc, [], [], {

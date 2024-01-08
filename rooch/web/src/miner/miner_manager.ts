@@ -1,35 +1,8 @@
+import { v4 as uuidv4 } from 'uuid';
 import cpuWorkerUrl from './cpu-worker/index.ts?worker&url';
 import gpuWorkerUrl from './gpu-worker/index.ts?worker&url';
 
-export const MAX_SEQUENCE = 0xffffffff;
-
-export enum Status {
-  Init,
-  Idle,
-  Runing
-}
-
-export interface IMintResult {
-  nonce: bigint
-}
-
-export interface IMinerTask {
-  id: string;
-  powData: Uint8Array;
-  difficulty: number;
-  timestamp: number;
-  onSuccess: (result: IMintResult)=>void;
-  onError: (err: Error)=>void;
-  onProgress: (msg: string)=>void;
-}
-
-export interface IWorkerTask {
-  powData: Uint8Array;
-  difficulty: number;
-  seqStart: number,
-  seqEnd: number,
-  timestamp: number;
-}
+import { Status, IMinerTask, IWorkerTask, MAX_SEQUENCE } from './types'
 
 export class MinerManager {
   status: Status;
@@ -89,6 +62,8 @@ export class MinerManager {
   }
 
   public stop() {
+    this.currentTask = undefined;
+
     if (this.taskTicker) {
       clearInterval(this.taskTicker)
     }
@@ -104,6 +79,9 @@ export class MinerManager {
         worker.terminate();
     });
     this.gpuWorkers = [];
+    this.tasks = [];
+
+    this.status == Status.Idle;
   }
 
   private handleTask() {
@@ -114,48 +92,71 @@ export class MinerManager {
     const task = this.tasks.shift()
     if (task) {
       this.currentTask = task;
-
-      const cpuSequencePerWorker = Math.floor(MAX_SEQUENCE / (this.cpuWorkerCount * 2));
-      const gpuSequencePerWorker = Math.floor(MAX_SEQUENCE / (this.gpuWorkerCount * 4));
-    
       let currentSeqStart = 0;
     
-      for (let i = 0; i < this.cpuWorkerCount; i++) {
-        const workerTask: IWorkerTask = {
-          powData: task.powData,
-          difficulty: task.difficulty,
-          seqStart: currentSeqStart,
-          seqEnd: currentSeqStart + cpuSequencePerWorker,
-          timestamp: task.timestamp,
-        };
-  
-        this.bindWorkerEvents(this.cpuWorkers[i], task)
-        this.cpuWorkers[i].postMessage(workerTask);
+      if (this.cpuWorkerCount > 0) {
+        const cpuSequencePerWorker = Math.floor(MAX_SEQUENCE / (this.cpuWorkerCount * 2));
 
-        currentSeqStart += cpuSequencePerWorker;
+        for (let i = 0; i < this.cpuWorkerCount; i++) {
+          const workerTask: IWorkerTask = {
+            id: uuidv4(),
+            powData: task.powData,
+            difficulty: task.difficulty,
+            seqStart: currentSeqStart,
+            seqEnd: currentSeqStart + cpuSequencePerWorker,
+            timestamp: task.timestamp,
+          };
+    
+          this.bindWorkerEvents(this.cpuWorkers[i], task)
+          this.cpuWorkers[i].postMessage({
+            type: "mint",
+            payload: workerTask
+          });
+  
+          currentSeqStart += cpuSequencePerWorker;
+        }
       }
-  
-      for (let i = 0; i < this.gpuWorkerCount; i++) {
-        const workerTask: IWorkerTask = {
-          powData: task.powData,
-          difficulty: task.difficulty,
-          seqStart: currentSeqStart,
-          seqEnd: currentSeqStart + gpuSequencePerWorker,
-          timestamp: task.timestamp,
-        };
-  
-        this.gpuWorkers[i].postMessage(workerTask);
-        this.bindWorkerEvents(this.gpuWorkers[i], task)
+      
+      if (this.gpuWorkerCount > 0) {
+        for (let i = 0; i < this.gpuWorkerCount; i++) {
+          const gpuSequencePerWorker = Math.floor(MAX_SEQUENCE / (this.gpuWorkerCount * 4));
 
-        currentSeqStart += gpuSequencePerWorker;
+          const workerTask: IWorkerTask = {
+            id: uuidv4(),
+            powData: task.powData,
+            difficulty: task.difficulty,
+            seqStart: currentSeqStart,
+            seqEnd: currentSeqStart + gpuSequencePerWorker,
+            timestamp: task.timestamp,
+          };
+    
+          this.bindWorkerEvents(this.gpuWorkers[i], task)
+          this.gpuWorkers[i].postMessage({
+            type: "mint",
+            payload: workerTask
+          });
+
+          currentSeqStart += gpuSequencePerWorker;
+        }
       }
     }
   }
 
   private bindWorkerEvents(worker: Worker, task: IMinerTask) {
     worker.onmessage = (ev: MessageEvent)=>{
-      console.log('msg:', ev)
-      task.onProgress(ev.data)
+      const { type, payload } = ev.data;
+      console.log('worker event:', type, 'payload:', payload)
+
+      switch (type) {
+        case "progress":
+          task.onProgress(payload);
+          break
+        case "end":
+            task.onEnd(payload);
+            break
+        default:
+          console.log('not support type:', type)
+      }
     }
 
     worker.onerror = (ev: ErrorEvent)=>{
