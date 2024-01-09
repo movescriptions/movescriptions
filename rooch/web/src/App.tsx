@@ -84,6 +84,8 @@ function App() {
       ],
     )
 
+    console.log("validatePow resp:", resp);
+
     if (resp.vm_status == 'Executed') {
       return resp.return_values?.[0]?.decoded_value;
     }
@@ -128,13 +130,14 @@ function App() {
     setMinting(true)
 
     const tick = 'move';
+    const amount = 1000;
     const difficulty = 2;
 
     try {
-      const result = await searchNonce(account, tick, 1000, difficulty)
+      const result = await searchNonce(account, tick, amount, difficulty)
       console.log("found nonce:", result.nonce, 'hash:', result.hash);
 
-      if (!await validatePow(account, tick, 1000, difficulty, result.nonce)) {
+      if (!await validatePow(account, tick, amount, difficulty, result.nonce)) {
         setErrorMsg(`found nonce: ${result.nonce}, hash: ${result.hash} invalid!`)
         return
       }

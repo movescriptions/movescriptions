@@ -1,7 +1,6 @@
 
-import { arrayify, hexlify } from "@ethersproject/bytes";
-import { keccak256 } from "@ethersproject/keccak256"
 import { MintPayload } from "../types"
+import { pow, matchDifficulty, hexlify } from "../../utils/pow"
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const ctx: Worker = self as any;
@@ -60,8 +59,9 @@ const searchNonce = async (payload: MintPayload) => {
   let lastTime = new Date().getTime();
   let nonce = seqStart
 
+  console.log("inputData:", hexlify(powData))
   while(nonce < seqEnd) {
-    const data = hash(appendU64ToUint8Array(hash(powData), BigInt(nonce)))
+    const data = pow(powData, nonce)
     if (matchDifficulty(data, difficulty)) {
       notifyEnd(id, nonce, hexlify(data))
       return
@@ -82,27 +82,3 @@ const searchNonce = async (payload: MintPayload) => {
   notifyEnd(id, undefined, undefined)
 }
 
-const hash = (data: Uint8Array): Uint8Array =>{
-  return arrayify(keccak256(data))
-}
-
-function appendU64ToUint8Array(array: Uint8Array, u64: bigint): Uint8Array {
-  const tempArray = new Uint8Array(8);
-  for (let i = 0; i < 8; i++) {
-      tempArray[i] = Number((u64 & (BigInt(0xff) << BigInt(i * 8))) >> BigInt(i * 8));
-  }
-  const result = new Uint8Array(array.length + tempArray.length);
-  result.set(array);
-  result.set(tempArray, array.length);
-  return result;
-}
-
-const matchDifficulty = (data: Uint8Array, difficulty: number):boolean => {
-  for(let i = 0; i < difficulty; i++) {
-    if(data[i] !== 0) {
-      return false;
-    }
-  }
-
-  return true;
-}
