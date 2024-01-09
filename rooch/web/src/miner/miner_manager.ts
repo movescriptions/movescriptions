@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import cpuWorkerUrl from './cpu-worker/index.ts?worker&url';
 import gpuWorkerUrl from './gpu-worker/index.ts?worker&url';
 
-import { Status, IMinerTask, IWorkerTask, MAX_SEQUENCE } from './types'
+import { Status, IMinerTask, IWorkerTask, IWorkerStatus, MAX_SEQUENCE } from './types'
 
 export class MinerManager {
   status: Status;
@@ -11,6 +11,7 @@ export class MinerManager {
   tasks: Array<IMinerTask>;
   cpuWorkers: Array<Worker>;
   gpuWorkers: Array<Worker>;
+  workerStatus: Map<string, IWorkerStatus>;
   taskTicker: number | NodeJS.Timeout | undefined;
   currentTask: IMinerTask | undefined
 
@@ -22,7 +23,9 @@ export class MinerManager {
     this.tasks = new Array<IMinerTask>();
     this.cpuWorkers = new Array<Worker>();
     this.gpuWorkers = new Array<Worker>();
+
     this.currentTask = undefined;
+    this.workerStatus = new Map<string, IWorkerStatus>();
   }
 
   public addTask(task: IMinerTask) {
@@ -63,9 +66,11 @@ export class MinerManager {
 
   public stop() {
     this.currentTask = undefined;
+    this.workerStatus = new Map<string, IWorkerStatus>();
 
     if (this.taskTicker) {
       clearInterval(this.taskTicker)
+      this.taskTicker = undefined;
     }
 
     // Stop CPU workers
@@ -79,18 +84,25 @@ export class MinerManager {
         worker.terminate();
     });
     this.gpuWorkers = [];
-    this.tasks = [];
 
+    this.tasks = [];
     this.status == Status.Idle;
   }
 
   private handleTask() {
-    if (this.currentTask || this.tasks.length == 0) {
+    if (this.currentTask) {
+      this.collectTaskResult(this.currentTask)
+      return
+    }
+
+    if (this.tasks.length == 0) {
       return
     }
 
     const task = this.tasks.shift()
     if (task) {
+      console.log("handle task:", task)
+
       this.currentTask = task;
       let currentSeqStart = 0;
     
@@ -107,7 +119,9 @@ export class MinerManager {
             timestamp: task.timestamp,
           };
     
-          this.bindWorkerEvents(this.cpuWorkers[i], task)
+          const workerStatus = {hashRate: 0, error: undefined, nonce: undefined, hash: undefined}
+          this.bindWorkerEvents(this.cpuWorkers[i], workerStatus)
+          this.workerStatus.set(workerTask.id, workerStatus)
           this.cpuWorkers[i].postMessage({
             type: "mint",
             payload: workerTask
@@ -130,7 +144,9 @@ export class MinerManager {
             timestamp: task.timestamp,
           };
     
-          this.bindWorkerEvents(this.gpuWorkers[i], task)
+          const workerStatus = {hashRate: 0, error: undefined, nonce: undefined, hash: undefined}
+          this.bindWorkerEvents(this.gpuWorkers[i], workerStatus)
+          this.workerStatus.set(workerTask.id, workerStatus)
           this.gpuWorkers[i].postMessage({
             type: "mint",
             payload: workerTask
@@ -142,27 +158,52 @@ export class MinerManager {
     }
   }
 
-  private bindWorkerEvents(worker: Worker, task: IMinerTask) {
+  private bindWorkerEvents(worker: Worker, workerStatus: IWorkerStatus) {
     worker.onmessage = (ev: MessageEvent)=>{
       const { type, payload } = ev.data;
       console.log('worker event:', type, 'payload:', payload)
 
       switch (type) {
         case "progress":
-          task.onProgress(payload);
+          workerStatus.hashRate = payload.hashRate;
           break
         case "end":
-            task.onEnd(payload);
-            break
+          workerStatus.nonce = payload.nonce;
+          workerStatus.hash = payload.hash;
+          break
         default:
           console.log('not support type:', type)
       }
     }
 
     worker.onerror = (ev: ErrorEvent)=>{
-      console.log('msg:', ev)
-      task.onError(new Error(ev.error))
+      workerStatus.error = new Error(ev.error);
     }
+  }
+
+  private collectTaskResult(task: IMinerTask) {
+    let totalHashRate = 0;
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    for (const [_id, status] of this.workerStatus) {
+      if (status.error) {
+        task.onError(status.error)
+        break
+      }
+
+      if (status.nonce && status.hash) {
+        task.onEnd({
+          nonce: status.nonce,
+          hash: status.hash,
+        });
+
+        break
+      }
+
+      totalHashRate = totalHashRate + status.hashRate
+    }
+
+    task.onProgress(`search nonce..., hashRate: ${totalHashRate}/s`);
   }
 }
 

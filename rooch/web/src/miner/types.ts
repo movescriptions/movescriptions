@@ -9,7 +9,8 @@ export enum Status {
 }
 
 export interface IMintResult {
-  nonce: bigint
+  nonce: number;
+  hash: string;
 }
 
 export interface IMinerTask {
@@ -19,7 +20,7 @@ export interface IMinerTask {
   timestamp: number;
   onEnd: (result: IMintResult)=>void;
   onError: (err: Error)=>void;
-  onProgress: (msg: ProgressPayload)=>void;
+  onProgress: (msg: string)=>void;
 }
 
 export interface IWorkerTask {
@@ -31,16 +32,24 @@ export interface IWorkerTask {
   timestamp: number;
 }
 
+export interface IWorkerStatus {
+  hashRate: number;
+  error: Error | undefined;
+  nonce: number | undefined;
+  hash: string | undefined;
+}
+
 export type MessageType = "mint" | "progress"
 
 export type MintPayload = IWorkerTask
 
 export type ProgressPayload = {
   id: string,
-  progress: string,
+  hashRate: number,
 }
 
 export type EndPayload = {
   id: string,
   nonce: number | undefined,
+  hash: string,
 }

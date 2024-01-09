@@ -1,5 +1,5 @@
 
-import { arrayify } from "@ethersproject/bytes";
+import { arrayify, hexlify } from "@ethersproject/bytes";
 import { keccak256 } from "@ethersproject/keccak256"
 import { MintPayload } from "../types"
 
@@ -34,22 +34,23 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function notifyProgress(id: string, progress: string) {
+async function notifyProgress(id: string, hashRate: number) {
   ctx.postMessage({
     type: 'progress',
     payload: {
       id: id,
-      progress: progress,
+      hashRate: hashRate,
     }
   });
 }
 
-async function notifyEnd(id: string, nonce: number | undefined) {
+async function notifyEnd(id: string, nonce: number | undefined, hash: string | undefined) {
   ctx.postMessage({
     type: 'end',
     payload: {
       id: id,
       nonce: nonce,
+      hash: hash,
     }
   });
 }
@@ -62,7 +63,7 @@ const searchNonce = async (payload: MintPayload) => {
   while(nonce < seqEnd) {
     const data = hash(appendU64ToUint8Array(hash(powData), BigInt(nonce)))
     if (matchDifficulty(data, difficulty)) {
-      notifyEnd(id, nonce)
+      notifyEnd(id, nonce, hexlify(data))
       return
     }
 
@@ -71,14 +72,14 @@ const searchNonce = async (payload: MintPayload) => {
       const hashRate = Math.floor(10000 / ((now - lastTime) / 1000));
       lastTime = now;
 
-      notifyProgress(id, `finding nonce, hash rate: ${hashRate}/s`)
+      notifyProgress(id, hashRate)
       await sleep(0)
     }
 
     nonce++;
   }
 
-  notifyEnd(id, undefined)
+  notifyEnd(id, undefined, undefined)
 }
 
 const hash = (data: Uint8Array): Uint8Array =>{
