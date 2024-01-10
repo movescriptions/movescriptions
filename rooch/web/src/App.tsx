@@ -7,6 +7,7 @@ import {
   IAccount,
 } from '@roochnetwork/rooch-sdk'
 
+import { arrayify } from "@ethersproject/bytes"
 import { MinerManager, IMinerTask, IMintResult } from './miner'
 
 const moveScriptionAddress = `${import.meta.env.VITE_MOVE_SCRIPTIONS_ADDRESS}`
@@ -49,8 +50,10 @@ function App() {
       ],
     )
 
+    console.log("getPowInput resp:", resp);
+
     if (resp.vm_status == 'Executed') {
-      return resp.return_values?.[0]?.value?.value;
+      return resp.return_values?.[0]?.decoded_value as string;
     }
 
     throw new Error("get_pow_input_error:" + JSON.stringify(resp))
@@ -102,7 +105,7 @@ function App() {
       return new Promise((resolve, reject) => {
         const task: IMinerTask = {
           id: "1",
-          powData: powInput,
+          powData: arrayify(powInput),
           difficulty: difficulty,
           timestamp: new Date().getTime(),
           onEnd: (result: IMintResult)=>{
@@ -144,7 +147,24 @@ function App() {
 
       setMintResult(result)
 
-      const tx = await account.runFunction(mrc20MintFunc, [], [], {
+      const tx = await account.runFunction(mrc20MintFunc, [], [
+        {
+          type: 'Address',
+          value: account.getAddress(),
+        },
+        {
+          type: 'String',
+          value: tick,
+        },
+        {
+          type: 'U256',
+          value: amount,
+        },
+        {
+          type: 'U64',
+          value: result.nonce,
+        }
+      ], {
         maxGasAmount: 100000000,
       })
 
@@ -155,6 +175,7 @@ function App() {
       setMinting(false)
     }
   }
+
 
   const handleStop = async () => {
     setMinting(false)
