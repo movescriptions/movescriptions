@@ -119,8 +119,15 @@ module smartinscription::test_movescription {
             let test_tick_record = test_scenario::take_shared<movescription::TickRecord>(scenario);
             let first_inscription = test_scenario::take_from_sender<Movescription>(scenario);
             let amount = movescription::amount(&first_inscription);
-            movescription::burn_for_receipt(&mut test_tick_record, first_inscription, b"love and peace", test_scenario::ctx(scenario));
-            assert!(movescription::tick_record_current_supply(&test_tick_record) == total_supply - amount, 1);
+            let acc = movescription::acc(&first_inscription);
+            let tick = movescription::tick(&first_inscription);
+            let (coin, receipt) = movescription::do_burn_for_receipt(&mut test_tick_record, first_inscription, b"love and peace", test_scenario::ctx(scenario));
+            assert!(coin::value(&coin) == acc, 1);
+            transfer::public_transfer(coin, admin);
+            let (burn_tick, burn_amount) = movescription::drop_receipt(receipt);
+            assert!(tick == burn_tick, 2);
+            assert!(amount == burn_amount, 3);
+            assert!(movescription::tick_record_current_supply(&test_tick_record) == total_supply - amount, 4);
             test_scenario::return_shared(test_tick_record); 
         };
 

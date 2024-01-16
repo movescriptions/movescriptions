@@ -525,6 +525,13 @@ module smartinscription::movescription {
         (acc, receipt)
     }
 
+    /// Drop the BurnReceipt, allow developer to drop the receipt after the receipt is used
+    public fun drop_receipt(receipt: BurnReceipt):(String, u64) {
+        let BurnReceipt { id, tick: tick, amount: amount } = receipt;
+        object::delete(id);
+        (tick, amount)
+    }
+
     #[lint_allow(self_transfer)]
     /// Burn inscription and return the acc SUI to the sender
     public entry fun burn(
