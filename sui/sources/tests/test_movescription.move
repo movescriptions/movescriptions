@@ -131,7 +131,8 @@ module smartinscription::test_movescription {
         test_scenario::end(scenario_val);
     }
 
-    fun mint_move_tick(scenario: &mut Scenario, move_tick: &mut movescription::TickRecord, sender: address, c: &mut clock::Clock) : Movescription{
+    #[test_only]
+    public fun mint_move_tick(scenario: &mut Scenario, move_tick: &mut movescription::TickRecord, sender: address, c: &mut clock::Clock) : Movescription{
         test_scenario::next_tx(scenario, sender);
         {
             let test_sui = coin::mint_for_testing<SUI>(100000000, test_scenario::ctx(scenario));
