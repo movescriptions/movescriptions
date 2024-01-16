@@ -53,6 +53,7 @@ module smartinscription::movescription {
     const EDeprecatedFunction: u64 = 20;
     const EInvalidFeeTick: u64 = 21;
     const ENotEnoughDeployFee: u64 = 22;
+    const ETemporarilyDisabled: u64 = 23;
 
     // ======== Types =========
     struct Movescription has key, store {
@@ -252,7 +253,7 @@ module smartinscription::movescription {
     }
 
     #[lint_allow(self_transfer)]
-    public entry fun deploy_v2(
+    fun do_deploy_with_fee(
         deploy_record: &mut DeployRecord,
         fee_tick_record: &mut TickRecord,
         fee_scription: &mut Movescription, 
@@ -281,6 +282,24 @@ module smartinscription::movescription {
         let deployer: address = tx_context::sender(ctx);
         transfer::public_transfer(acc_in_deploy_fee, deployer); 
         do_deploy(deploy_record, tick, total_supply, start_time_ms, epoch_count, mint_fee, ctx);
+    }
+
+    #[lint_allow(self_transfer)]
+    public entry fun deploy_v2(
+        _deploy_record: &mut DeployRecord,
+        _fee_tick_record: &mut TickRecord,
+        _fee_scription: &mut Movescription, 
+        _tick: vector<u8>,
+        _total_supply: u64,
+        _start_time_ms: u64,
+        _epoch_count: u64,
+        _mint_fee: u64,
+        _clk: &Clock,
+        _ctx: &mut TxContext
+    ) {
+        // Temporarily disable the deploy function for upgrade the protocol
+        abort ETemporarilyDisabled
+        //do_deploy_with_fee(_deploy_record, _fee_tick_record, _fee_scription, _tick, _total_supply, _start_time_ms, _epoch_count, _mint_fee, _clk, _ctx); 
     }
 
     public entry fun deploy(
@@ -684,6 +703,33 @@ module smartinscription::movescription {
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
         init(MOVESCRIPTION{}, ctx);
+    }
+
+    #[test_only]
+    public fun deploy_with_fee_for_testing(
+        deploy_record: &mut DeployRecord,
+        fee_tick_record: &mut TickRecord,
+        fee_scription: &mut Movescription, 
+        tick: vector<u8>,
+        total_supply: u64,
+        start_time_ms: u64,
+        epoch_count: u64,
+        mint_fee: u64,
+        clk: &Clock,
+        ctx: &mut TxContext
+    ) {
+        do_deploy_with_fee(deploy_record, fee_tick_record, fee_scription, tick, total_supply, start_time_ms, epoch_count, mint_fee, clk, ctx);
+    }
+
+    #[test_only]
+    public fun new_movescription_for_testing(
+        amount: u64,
+        tick: String,
+        fee_balance: Balance<SUI>,
+        metadata: Option<Metadata>,
+        ctx: &mut TxContext
+    ) : Movescription {
+        new_movescription(amount, tick, fee_balance, metadata, ctx)
     }
 
     #[test]

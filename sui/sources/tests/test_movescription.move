@@ -43,7 +43,7 @@ module smartinscription::test_movescription {
             let deploy_record = test_scenario::take_shared<movescription::DeployRecord>(scenario);
             let now_ms = clock::timestamp_ms(&c);
             let tick = b"test";
-            movescription::deploy_v2(&mut deploy_record, &mut move_tick,&mut move_tick_scription, tick, total_supply, now_ms, epoch_count, 1000, &c, test_scenario::ctx(scenario));
+            movescription::deploy_with_fee_for_testing(&mut deploy_record, &mut move_tick,&mut move_tick_scription, tick, total_supply, now_ms, epoch_count, 1000, &c, test_scenario::ctx(scenario));
             test_scenario::return_shared(deploy_record);
             let after_deploy_move_tick_amount = movescription::amount(&move_tick_scription);
             assert!(start_move_tick_amount - after_deploy_move_tick_amount == movescription::calculate_deploy_fee(tick, epoch_count), 0);
