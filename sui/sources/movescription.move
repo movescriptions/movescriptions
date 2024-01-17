@@ -3,9 +3,9 @@ module smartinscription::movescription {
     use std::string;
     use std::vector;
     use std::option::{Self, Option};
+    use std::type_name;
     use sui::object::{Self, UID, ID};
     use sui::transfer;
-    //use sui::dynamic_field as df;
     use sui::tx_context::{Self, TxContext};
     use sui::event::emit;
     use sui::coin::{Self, Coin};
@@ -59,10 +59,16 @@ module smartinscription::movescription {
     // ======== Types =========
     struct Movescription has key, store {
         id: UID,
+        /// The inscription amount
         amount: u64,
+        /// The inscription tick, it is an ascii string with length between 4 and 32
+        /// The tick is always uppercase, and unique in the protocol
         tick: String,
-        /// The attachments coin count of the inscription.
+        /// The attachment dynamic object fields count of the inscription.
+        /// For historical reasons, this field is named `attach_coin`, it should be `attach_dof`
         attach_coin: u64,
+        /// The locked SUI in the inscription
+        /// Because the locked SUI can be injected after the inscription is created, it like an accumulator.
         acc: Balance<SUI>,
         // Add a metadata field for future extension
         metadata: Option<Metadata>,
@@ -191,7 +197,7 @@ module smartinscription::movescription {
     fun new_movescription(
         amount: u64,
         tick: String,
-        fee_balance: Balance<SUI>,
+        acc_balance: Balance<SUI>,
         metadata: Option<Metadata>,
         ctx: &mut TxContext
     ): Movescription {
@@ -200,7 +206,7 @@ module smartinscription::movescription {
             amount,
             tick,
             attach_coin: 0,
-            acc: fee_balance,
+            acc: acc_balance,
             metadata,
         }
     }
@@ -466,7 +472,7 @@ module smartinscription::movescription {
         };
     }
 
-    public entry fun merge(
+    public fun do_merge(
         inscription1: &mut Movescription,
         inscription2: Movescription,
     ) {
@@ -478,6 +484,13 @@ module smartinscription::movescription {
         inscription1.amount = inscription1.amount + amount;
         balance::join<SUI>(&mut inscription1.acc, acc);
         object::delete(id);
+    }
+
+    public entry fun merge(
+        inscription1: &mut Movescription,
+        inscription2: Movescription,
+    ) {
+        do_merge(inscription1, inscription2);
     }
 
     /// Internal using for burn Movescription without emiting event and BurnRecipt
@@ -610,30 +623,42 @@ module smartinscription::movescription {
         inject_sui(inscription, receive);
     }
 
-    // Interface for object combination
-    public fun add_dof<Name: copy + drop + store, Value: key + store>(
+    /// Interface for object combination
+    /// Add the `Value` type dof to the movescription
+    public fun add_dof<Value: key + store>(
         movescription: &mut Movescription,
-        name: Name,
         value: Value,
     ) {
-        dof::add<Name, Value>(&mut movescription.id, name, value);
+        let name = type_to_name<Value>();
+        dof::add(&mut movescription.id, name, value);
         movescription.attach_coin = movescription.attach_coin + 1;
     }
 
-    public fun remove_dof<Name: copy + drop + store, Value: key + store>(
+    /// Returns the `Value` type dof of the movescription
+    public fun remove_dof<Value: key + store>(
         movescription: &mut Movescription,
-        name: Name
     ): Value {
-        let value: Value = dof::remove<Name, Value>(&mut movescription.id, name);
+        let name = type_to_name<Value>();
+        let value: Value = dof::remove<String, Value>(&mut movescription.id, name);
         movescription.attach_coin = movescription.attach_coin - 1;
         value
     }
 
-    public fun exists_dof<Name: copy + drop + store>(
-        movescription: &mut Movescription,
-        name: Name
+    /// Returns if the movescription contains the `Value` type dof
+    public fun exists_dof<Value: key + store>(
+        movescription: &Movescription,
     ): bool {
-        dof::exists_<Name>(&movescription.id, name)
+        let name = type_to_name<Value>();
+        dof::exists_with_type<String, Value>(&movescription.id, name)
+    }
+
+    fun type_to_name<T>() : String {
+        type_name::into_string(type_name::get_with_original_ids<T>())
+    }
+
+    /// Returns if the movescription contains any dof
+    public fun contains_dof(movescription: &Movescription,): bool{
+        movescription.attach_coin > 0
     }
 
     // ===== Migrate functions =====
@@ -657,7 +682,13 @@ module smartinscription::movescription {
         inscription.tick
     }
 
+    ///[DEPRECATED] use `attach_dof` instead
     public fun attach_coin(inscription: &Movescription): u64 {
+        inscription.attach_coin
+    }
+
+    /// Get the dynamic object field count of the inscription
+    public fun attach_dof(inscription: &Movescription): u64 {
         inscription.attach_coin
     }
 
@@ -720,6 +751,10 @@ module smartinscription::movescription {
         PROTOCOL_START_TIME_MS
     }
 
+    public fun base_epoch_count(): u64 {
+        BASE_EPOCH_COUNT
+    }
+
     public fun calculate_deploy_fee(tick: vector<u8>, epoch_count: u64): u64 {
         assert!(epoch_count >= MIN_EPOCHS, EInvalidEpoch);
         let tick_len: u64 = ascii::length(&string(tick));
@@ -760,55 +795,17 @@ module smartinscription::movescription {
     public fun new_movescription_for_testing(
         amount: u64,
         tick: String,
-        fee_balance: Balance<SUI>,
+        acc_balance: Balance<SUI>,
         metadata: Option<Metadata>,
         ctx: &mut TxContext
     ) : Movescription {
-        new_movescription(amount, tick, fee_balance, metadata, ctx)
+        new_movescription(amount, tick, acc_balance, metadata, ctx)
     }
 
-    #[test]
-    fun test_split_acc(){
-        let acc_amount = 1000u64;
-        let split_amount = 100u64;
-        let inscription_amount = 1000u64;
-        let new_acc_amount = split_acc(acc_amount, split_amount, inscription_amount);
-        assert!(new_acc_amount == 100u64, 0);
-    }
-
-    #[test]
-    fun test_split_acc2(){
-        let acc_amount = 4_0000_0000u64;
-        let split_amount = 1111_1111u64;
-        let inscription_amount = 9999_9999u64;
-        let new_acc_amount = split_acc(acc_amount, split_amount, inscription_amount);
-        //std::debug::print(&new_acc_amount);
-        assert!(new_acc_amount == 4444_4444u64, 0);
-    }
-
-    #[test]
-    fun test_split_acc3(){
-        let acc_amount = 100u64;
-        let split_amount = 1u64;
-        let inscription_amount = 100_0000u64;
-        let new_acc_amount = split_acc(acc_amount, split_amount, inscription_amount);
-        //std::debug::print(&new_acc_amount);
-        assert!(new_acc_amount == 1u64, 0);
-    }
-
-    #[test]
-    fun test_calculate_deploy_fee(){
-        let fee = calculate_deploy_fee(b"MOVE", BASE_EPOCH_COUNT);
-        assert!(fee == 1100, 0);
-        let fee = calculate_deploy_fee(b"MOVER", BASE_EPOCH_COUNT);
-        assert!(fee == 900, 0);
-        let fee = calculate_deploy_fee(b"MMMMMMMMMMMMMMMMMMMMMMMMMMMMOVER", BASE_EPOCH_COUNT);
-        assert!(fee == 225, 0);
-        let fee = calculate_deploy_fee(b"MOVE", 60*24);
-        //std::debug::print(&fee);
-        assert!(fee == 2500, 0);
-        let fee = calculate_deploy_fee(b"MOVE", MIN_EPOCHS);
-        assert!(fee == 19000, 0); 
-        //std::debug::print(&fee);
-    }
+    #[test_only]
+    public fun drop_movescription_for_testing(inscription: Movescription) {
+        let Movescription { id, amount: _, tick: _, attach_coin:_, acc, metadata:_ } = inscription;
+        balance::destroy_for_testing(acc);
+        object::delete(id);
+    } 
 }
