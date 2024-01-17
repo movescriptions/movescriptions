@@ -599,10 +599,17 @@ module smartinscription::movescription {
     }
 
     public fun exists_dof<Name: copy + drop + store>(
-        movescription: &mut Movescription,
+        movescription: &Movescription,
         name: Name
     ): bool {
         dof::exists_<Name>(&movescription.id, name)
+    }
+
+    public fun exists_with_type_dof<Name: copy + drop + store, Value: key + store>(
+        movescription: &Movescription,
+        name: Name
+    ): bool {
+        dof::exists_with_type<Name, Value>(&movescription.id, name)
     }
 
     // ===== Migrate functions =====
