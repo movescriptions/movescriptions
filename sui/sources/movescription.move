@@ -13,6 +13,7 @@ module smartinscription::movescription {
     use sui::table::{Self, Table};
     use sui::sui::SUI;
     use sui::clock::{Self, Clock};
+    use sui::dynamic_object_field as dof;
     use sui::package;
     use sui::display;
     use smartinscription::string_util::{to_uppercase};
@@ -562,6 +563,7 @@ module smartinscription::movescription {
         ctx: &mut TxContext
     ) : Movescription {
         assert!(0 < amount && amount < inscription.amount, EInvalidAmount);
+        assert!(inscription.attach_coin == 0, EAttachCoinExists);
         let acc_amount = balance::value(&inscription.acc);
         let new_ins_fee_balance = if (acc_amount == 0) {
             balance::zero<SUI>()
@@ -599,13 +601,39 @@ module smartinscription::movescription {
         transfer::public_transfer(ins, tx_context::sender(ctx));
     }
 
-    // Interface reserved for future SFT transactions
+    // Interface for SFT transactions
     public fun inject_sui(inscription: &mut Movescription, receive: Coin<SUI>) {
         coin::put(&mut inscription.acc, receive);
     }
 
     public entry fun inject_sui_entry(inscription: &mut Movescription, receive: Coin<SUI>) {
         inject_sui(inscription, receive);
+    }
+
+    // Interface for object combination
+    public fun add_dof<Name: copy + drop + store, Value: key + store>(
+        movescription: &mut Movescription,
+        name: Name,
+        value: Value,
+    ) {
+        dof::add<Name, Value>(&mut movescription.id, name, value);
+        movescription.attach_coin = movescription.attach_coin + 1;
+    }
+
+    public fun remove_dof<Name: copy + drop + store, Value: key + store>(
+        movescription: &mut Movescription,
+        name: Name
+    ): Value {
+        let value: Value = dof::remove<Name, Value>(&mut movescription.id, name);
+        movescription.attach_coin = movescription.attach_coin - 1;
+        value
+    }
+
+    public fun exists_dof<Name: copy + drop + store>(
+        movescription: &mut Movescription,
+        name: Name
+    ): bool {
+        dof::exists_<Name>(&movescription.id, name)
     }
 
     // ===== Migrate functions =====
