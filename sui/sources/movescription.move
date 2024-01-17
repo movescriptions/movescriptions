@@ -21,7 +21,7 @@ module smartinscription::movescription {
 
 
     // ======== Constants =========
-    const VERSION: u64 = 2;
+    const VERSION: u64 = 3;
     const MAX_TICK_LENGTH: u64 = 32;
     const MIN_TICK_LENGTH: u64 = 4;
     const MAX_MINT_FEE: u64 = 100_000_000_000;
