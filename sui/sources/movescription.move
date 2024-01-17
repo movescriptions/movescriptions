@@ -681,6 +681,26 @@ module smartinscription::movescription {
         init(MOVESCRIPTION{}, ctx);
     }
 
+    #[test_only]
+    public fun mint_for_testing(
+        amount: u64,
+        tick: vector<u8>,
+        fee_balance: Balance<SUI>,
+        metadata: Option<Metadata>,
+        ctx: &mut TxContext
+    ): Movescription {
+        to_uppercase(&mut tick);
+        let tick_str: String = string(tick);
+        Movescription {
+            id: object::new(ctx),
+            amount,
+            tick: tick_str,
+            attach_coin: 0,
+            acc: fee_balance,
+            metadata,
+        }
+    }
+
     #[test]
     fun test_split_acc(){
         let acc_amount = 1000u64;
