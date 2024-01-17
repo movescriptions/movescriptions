@@ -1,6 +1,5 @@
 #[test_only]
 module smartinscription::test_movescription {
-    use std::option;
     use sui::clock;
     use sui::sui::SUI;
     use sui::coin;
@@ -44,7 +43,7 @@ module smartinscription::test_movescription {
             let deploy_record = test_scenario::take_shared<movescription::DeployRecord>(scenario);
             let now_ms = clock::timestamp_ms(&c);
             let tick = b"test";
-            movescription::deploy_v2(&mut deploy_record, &mut move_tick,&mut move_tick_scription, tick, total_supply, now_ms, epoch_count, 1000, &c, test_scenario::ctx(scenario));
+            movescription::deploy_with_fee_for_testing(&mut deploy_record, &mut move_tick,&mut move_tick_scription, tick, total_supply, now_ms, epoch_count, 1000, &c, test_scenario::ctx(scenario));
             test_scenario::return_shared(deploy_record);
             let after_deploy_move_tick_amount = movescription::amount(&move_tick_scription);
             assert!(start_move_tick_amount - after_deploy_move_tick_amount == movescription::calculate_deploy_fee(tick, epoch_count), 0);
@@ -120,8 +119,15 @@ module smartinscription::test_movescription {
             let test_tick_record = test_scenario::take_shared<movescription::TickRecord>(scenario);
             let first_inscription = test_scenario::take_from_sender<Movescription>(scenario);
             let amount = movescription::amount(&first_inscription);
-            movescription::burn_v2(&mut test_tick_record, first_inscription, b"love and peace", test_scenario::ctx(scenario));
-            assert!(movescription::tick_record_current_supply(&test_tick_record) == total_supply - amount, 1);
+            let acc = movescription::acc(&first_inscription);
+            let tick = movescription::tick(&first_inscription);
+            let (coin, receipt) = movescription::do_burn_for_receipt(&mut test_tick_record, first_inscription, b"love and peace", test_scenario::ctx(scenario));
+            assert!(coin::value(&coin) == acc, 1);
+            transfer::public_transfer(coin, admin);
+            let (burn_tick, burn_amount) = movescription::drop_receipt(receipt);
+            assert!(tick == burn_tick, 2);
+            assert!(amount == burn_amount, 3);
+            assert!(movescription::tick_record_current_supply(&test_tick_record) == total_supply - amount, 4);
             test_scenario::return_shared(test_tick_record); 
         };
 

@@ -53,6 +53,7 @@ module smartinscription::movescription {
     const EDeprecatedFunction: u64 = 20;
     const EInvalidFeeTick: u64 = 21;
     const ENotEnoughDeployFee: u64 = 22;
+    const ETemporarilyDisabled: u64 = 23;
 
     // ======== Types =========
     struct Movescription has key, store {
@@ -131,6 +132,7 @@ module smartinscription::movescription {
 
     struct BurnTick has copy, drop {
         sender: address,
+        tick: String,
         amount: u64,
         message: string::String,
     }
@@ -251,7 +253,7 @@ module smartinscription::movescription {
     }
 
     #[lint_allow(self_transfer)]
-    public entry fun deploy_v2(
+    fun do_deploy_with_fee(
         deploy_record: &mut DeployRecord,
         fee_tick_record: &mut TickRecord,
         fee_scription: &mut Movescription, 
@@ -276,10 +278,28 @@ module smartinscription::movescription {
         assert!(fee_scription.amount >= deploy_fee_amount, ENotEnoughDeployFee);
         let deploy_fee = do_split(fee_scription, deploy_fee_amount, ctx);
         //Burn the fee and Return the acc SUI to the deployer
-        let acc_in_deploy_fee = do_burn(fee_tick_record, deploy_fee, ctx);
+        let acc_in_deploy_fee = do_burn(fee_tick_record, deploy_fee, vector::empty(), ctx);
         let deployer: address = tx_context::sender(ctx);
         transfer::public_transfer(acc_in_deploy_fee, deployer); 
         do_deploy(deploy_record, tick, total_supply, start_time_ms, epoch_count, mint_fee, ctx);
+    }
+
+    #[lint_allow(self_transfer)]
+    public entry fun deploy_v2(
+        _deploy_record: &mut DeployRecord,
+        _fee_tick_record: &mut TickRecord,
+        _fee_scription: &mut Movescription, 
+        _tick: vector<u8>,
+        _total_supply: u64,
+        _start_time_ms: u64,
+        _epoch_count: u64,
+        _mint_fee: u64,
+        _clk: &Clock,
+        _ctx: &mut TxContext
+    ) {
+        // Temporarily disable the deploy function for upgrade the protocol
+        abort ETemporarilyDisabled
+        //do_deploy_with_fee(_deploy_record, _fee_tick_record, _fee_scription, _tick, _total_supply, _start_time_ms, _epoch_count, _mint_fee, _clk, _ctx); 
     }
 
     public entry fun deploy(
@@ -463,64 +483,75 @@ module smartinscription::movescription {
     fun do_burn(
         tick_record: &mut TickRecord,
         inscription: Movescription,
-        ctx: &mut TxContext
-    ) : Coin<SUI> {
-        assert!(tick_record.version == VERSION, EVersionMismatched);
-        assert!(inscription.attach_coin == 0, EAttachCoinExists);
-        let Movescription { id, amount: amount, tick: _, attach_coin:_, acc, metadata:_ } = inscription;
-        tick_record.current_supply = tick_record.current_supply - amount;
-        let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
-        object::delete(id);
-        acc
-    }
-
-    public fun do_burn_v2(
-        tick_record: &mut TickRecord,
-        inscription: Movescription,        
         message: vector<u8>,
         ctx: &mut TxContext
-    ) : (Coin<SUI>, BurnReceipt) {
-        assert!(tick_record.version == VERSION, EVersionMismatched);
+    ) : Coin<SUI> {
+        assert!(tick_record.version <= VERSION, EVersionMismatched);
+        assert!(tick_record.tick == inscription.tick, ENotSameTick);
         assert!(inscription.attach_coin == 0, EAttachCoinExists);
-        let Movescription { id, amount: amount, tick: _, attach_coin:_, acc, metadata:_ } = inscription;
+        let Movescription { id, amount: amount, tick: tick, attach_coin:_, acc, metadata:_ } = inscription;
         tick_record.current_supply = tick_record.current_supply - amount;
         let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
         object::delete(id);
 
-        let receipt = BurnReceipt {
-            id: object::new(ctx),
-            tick: tick_record.tick,
-            amount: amount,
-        };
-        
         emit({
             BurnTick {
                 sender: tx_context::sender(ctx),
+                tick: tick,
                 amount: amount,                
                 message: string::utf8(message),
             }
         });
 
+        acc
+    }
+
+    public fun do_burn_for_receipt(
+        tick_record: &mut TickRecord,
+        inscription: Movescription,        
+        message: vector<u8>,
+        ctx: &mut TxContext
+    ) : (Coin<SUI>, BurnReceipt) {
+        let tick = inscription.tick;
+        let amount = inscription.amount;
+        let acc = do_burn(tick_record, inscription, message, ctx);
+
+        let receipt = BurnReceipt {
+            id: object::new(ctx),
+            tick: tick,
+            amount: amount,
+        };
+        
         (acc, receipt)
     }
 
-    #[lint_allow(self_transfer)]
-    public entry fun burn(
-        _tick_record: &mut TickRecord,
-        _inscription: Movescription,
-        _ctx: &mut TxContext
-    ) {
-        abort EDeprecatedFunction
+    /// Drop the BurnReceipt, allow developer to drop the receipt after the receipt is used
+    public fun drop_receipt(receipt: BurnReceipt):(String, u64) {
+        let BurnReceipt { id, tick: tick, amount: amount } = receipt;
+        object::delete(id);
+        (tick, amount)
     }
 
     #[lint_allow(self_transfer)]
-    public entry fun burn_v2(
+    /// Burn inscription and return the acc SUI to the sender
+    public entry fun burn(
+        tick_record: &mut TickRecord,
+        inscription: Movescription,
+        ctx: &mut TxContext
+    ) {
+        let acc = do_burn(tick_record, inscription, vector::empty(), ctx);
+        transfer::public_transfer(acc, tx_context::sender(ctx));
+    }
+
+    #[lint_allow(self_transfer)]
+    /// Burn inscription and return the acc SUI to the sender, and got a BurnReceipt Movescription
+    public entry fun burn_for_receipt(
         tick_record: &mut TickRecord,
         inscription: Movescription,        
         message: vector<u8>,
         ctx: &mut TxContext
     ) {
-        let (acc, receipt) = do_burn_v2(tick_record, inscription, message, ctx);
+        let (acc, receipt) = do_burn_for_receipt(tick_record, inscription, message, ctx);
         transfer::public_transfer(acc, tx_context::sender(ctx));
         transfer::public_transfer(receipt, tx_context::sender(ctx));
     }
@@ -679,6 +710,33 @@ module smartinscription::movescription {
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
         init(MOVESCRIPTION{}, ctx);
+    }
+
+    #[test_only]
+    public fun deploy_with_fee_for_testing(
+        deploy_record: &mut DeployRecord,
+        fee_tick_record: &mut TickRecord,
+        fee_scription: &mut Movescription, 
+        tick: vector<u8>,
+        total_supply: u64,
+        start_time_ms: u64,
+        epoch_count: u64,
+        mint_fee: u64,
+        clk: &Clock,
+        ctx: &mut TxContext
+    ) {
+        do_deploy_with_fee(deploy_record, fee_tick_record, fee_scription, tick, total_supply, start_time_ms, epoch_count, mint_fee, clk, ctx);
+    }
+
+    #[test_only]
+    public fun new_movescription_for_testing(
+        amount: u64,
+        tick: String,
+        fee_balance: Balance<SUI>,
+        metadata: Option<Metadata>,
+        ctx: &mut TxContext
+    ) : Movescription {
+        new_movescription(amount, tick, fee_balance, metadata, ctx)
     }
 
     #[test]
