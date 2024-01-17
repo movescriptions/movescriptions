@@ -585,8 +585,8 @@ module smartinscription::movescription {
         name: Name,
         value: Value,
     ) {
-        movescription.attach_coin = movescription.attach_coin + 1;
         dof::add<Name, Value>(&mut movescription.id, name, value);
+        movescription.attach_coin = movescription.attach_coin + 1;
     }
 
     public fun remove_dof<Name: copy + drop + store, Value: key + store>(
