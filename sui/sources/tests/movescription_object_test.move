@@ -118,8 +118,17 @@ module smartinscription::movescription_object_test{
         assert!(movescription::exists_dof<Coin<SUI>>(&ms), 1);
         assert!(movescription::contains_dof(&ms), 2);
         assert!(movescription::attach_dof(&ms) == 1u64, 3);
+        {
+            let dof = movescription::borrow_dof<Coin<SUI>>(&ms);
+            assert!(coin::value(dof) == 100u64, 4);
+        };
+        {
+            let c = coin::mint_for_testing<SUI>(100u64, &mut tx_context);
+            let dof = movescription::borrow_dof_mut<Coin<SUI>>(&mut ms);
+            coin::join(dof, c);
+        };
         let new_value = movescription::remove_dof<Coin<SUI>>(&mut ms);
-        assert!(coin::value(&new_value) == 100u64, 4);
+        assert!(coin::value(&new_value) == 200u64, 4);
 
         assert!(!movescription::exists_dof<Coin<SUI>>(&ms), 5);
         assert!(!movescription::contains_dof(&ms), 6);

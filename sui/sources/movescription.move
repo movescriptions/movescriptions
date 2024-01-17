@@ -634,6 +634,22 @@ module smartinscription::movescription {
         movescription.attach_coin = movescription.attach_coin + 1;
     }
 
+    /// Borrow the `Value` type dof of the movescription
+    public fun borrow_dof<Value: key + store>(
+        movescription: &Movescription,
+    ): &Value {
+        let name = type_to_name<Value>();
+        dof::borrow<String, Value>(&movescription.id, name)
+    }
+
+    /// Borrow the `Value` type dof of the movescription mutably
+    public fun borrow_dof_mut<Value: key + store>(
+        movescription: &mut Movescription,
+    ): &mut Value {
+        let name = type_to_name<Value>();
+        dof::borrow_mut<String, Value>(&mut movescription.id, name)
+    }
+
     /// Returns the `Value` type dof of the movescription
     public fun remove_dof<Value: key + store>(
         movescription: &mut Movescription,
