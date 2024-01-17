@@ -13,7 +13,7 @@
     "@ethersproject/bytes": "^5.7.0",
     "@ethersproject/keccak256": "^5.7.0",
     "@hazae41/keccak256": "^1.0.8",
-    "@roochnetwork/rooch-sdk": "^0.0.6",
+    "@roochnetwork/rooch-sdk": "/home/yubing/workspace/rooch-network/rooch/sdk/typescript/rooch-sdk",
     "@types/uuid": "^9.0.7",
     "keccak256-webgpu": "^0.1.0",
     "long": "^5.2.3",

@@ -602,10 +602,8 @@
   resolved "https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.9.1.tgz#d146db7a5949e10837b323ce933ed882ac878262"
   integrity sha512-PyJsSsafjmIhVgaI1Zdj7m8BB8mMckFah/xbpplObyHfiXzKcI5UOUXRyOdHW7nz4DpMCuzLnF7v5IWHenCwYA==
 
-"@roochnetwork/rooch-sdk@^0.0.6":
-  version "0.0.6"
-  resolved "https://registry.npmjs.org/@roochnetwork/rooch-sdk/-/rooch-sdk-0.0.6.tgz#5cddfa5ecca7fafd4efa88d35496c769c1b282ef"
-  integrity sha512-3b7VeIFzu8dZNXJ/vCOBBu8qusS51QVguXsr0UiYTPTGkOa0zEaHfM2kEDZudPapXP3GUdiobuDCkETAJcxSFA==
+"@roochnetwork/rooch-sdk@file:../../../../rooch-network/rooch/sdk/typescript/rooch-sdk":
+  version "0.0.7"
   dependencies:
     "@ethersproject/bytes" "^5.7.0"
     "@kayahr/text-encoding" "^1.2.0"

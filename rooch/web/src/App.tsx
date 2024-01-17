@@ -149,33 +149,37 @@ function App() {
 
       const tx = await account.runFunction(mrc20MintFunc, [], [
         {
-          type: 'Address',
-          value: account.getAddress(),
+          type: 'Object',
+          value: {
+            address: moveScriptionAddress,
+            module: 'mrc20',
+            name: 'MRC20Store',
+          },
         },
         {
           type: 'String',
           value: tick,
         },
         {
+          type: 'U64',
+          value: result.nonce,
+        },
+        {
           type: 'U256',
           value: amount,
         },
-        {
-          type: 'U64',
-          value: result.nonce,
-        }
       ], {
         maxGasAmount: 100000000,
       })
 
-      console.log('tx:', tx)
+      console.log('mint tx:', tx)
+      setProgress("mint ok!")
     } catch (e: unknown) {
       console.log(e)
     } finally {
       setMinting(false)
     }
   }
-
 
   const handleStop = async () => {
     setMinting(false)
@@ -188,6 +192,10 @@ function App() {
       <div className="card">
         {!minting && (
           <div>
+            <div>
+              {progress}
+            </div>
+
             {mintResult && (
               <div>Found nonce: {mintResult.nonce}, hash: {mintResult.hash}</div>
             )}
