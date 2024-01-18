@@ -13,7 +13,7 @@ module smartinscription::movescription {
     use sui::table::{Self, Table};
     use sui::sui::SUI;
     use sui::clock::{Self, Clock};
-    use sui::dynamic_object_field as dof;
+    use sui::dynamic_field as df;
     use sui::package;
     use sui::display;
     use smartinscription::string_util::{to_uppercase};
@@ -47,7 +47,7 @@ module smartinscription::movescription {
     //const EStillMinting: u64 = 13;
     const ENotStarted: u64 = 14;
     const EInvalidEpoch: u64 = 15;
-    const EAttachCoinExists: u64 = 16;
+    const EAttachDFExists: u64 = 16;
     const EInvalidStartTime: u64 = 17;
     const ENotSameMetadata: u64 = 18;
     const EVersionMismatched: u64 = 19;
@@ -64,8 +64,8 @@ module smartinscription::movescription {
         /// The inscription tick, it is an ascii string with length between 4 and 32
         /// The tick is always uppercase, and unique in the protocol
         tick: String,
-        /// The attachment dynamic object fields count of the inscription.
-        /// For historical reasons, this field is named `attach_coin`, it should be `attach_dof`
+        /// The attachment dynamic fields count of the inscription.
+        /// For historical reasons, this field is named `attach_coin`, it should be `attach_df`
         attach_coin: u64,
         /// The locked SUI in the inscription
         /// Because the locked SUI can be injected after the inscription is created, it like an accumulator.
@@ -477,7 +477,7 @@ module smartinscription::movescription {
         inscription2: Movescription,
     ) {
         assert!(inscription1.tick == inscription2.tick, ENotSameTick);
-        assert!(inscription2.attach_coin == 0, EAttachCoinExists);
+        assert!(inscription2.attach_coin == 0, EAttachDFExists);
         assert!(inscription1.metadata == inscription2.metadata, ENotSameMetadata);
 
         let Movescription { id, amount, tick: _, attach_coin:_, acc, metadata:_ } = inscription2;
@@ -493,8 +493,8 @@ module smartinscription::movescription {
         do_merge(inscription1, inscription2);
     }
 
-    /// Internal using for burn Movescription without emiting event and BurnRecipt
-    fun do_burn(
+    /// Burn Movescription without BurnRecipt
+    public fun do_burn(
         tick_record: &mut TickRecord,
         inscription: Movescription,
         message: vector<u8>,
@@ -502,7 +502,7 @@ module smartinscription::movescription {
     ) : Coin<SUI> {
         assert!(tick_record.version <= VERSION, EVersionMismatched);
         assert!(tick_record.tick == inscription.tick, ENotSameTick);
-        assert!(inscription.attach_coin == 0, EAttachCoinExists);
+        assert!(inscription.attach_coin == 0, EAttachDFExists);
         let Movescription { id, amount: amount, tick: tick, attach_coin:_, acc, metadata:_ } = inscription;
         tick_record.current_supply = tick_record.current_supply - amount;
         let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
@@ -576,7 +576,7 @@ module smartinscription::movescription {
         ctx: &mut TxContext
     ) : Movescription {
         assert!(0 < amount && amount < inscription.amount, EInvalidAmount);
-        assert!(inscription.attach_coin == 0, EAttachCoinExists);
+        assert!(inscription.attach_coin == 0, EAttachDFExists);
         let acc_amount = balance::value(&inscription.acc);
         let new_ins_fee_balance = if (acc_amount == 0) {
             balance::zero<SUI>()
@@ -624,56 +624,56 @@ module smartinscription::movescription {
     }
 
     /// Interface for object combination
-    /// Add the `Value` type dof to the movescription
-    public fun add_dof<Value: key + store>(
+    /// Add the `Value` type dynamic field to the movescription
+    public fun add_df<Value: store>(
         movescription: &mut Movescription,
         value: Value,
     ) {
         let name = type_to_name<Value>();
-        dof::add(&mut movescription.id, name, value);
+        df::add(&mut movescription.id, name, value);
         movescription.attach_coin = movescription.attach_coin + 1;
     }
 
-    /// Borrow the `Value` type dof of the movescription
-    public fun borrow_dof<Value: key + store>(
+    /// Borrow the `Value` type dynamic field of the movescription
+    public fun borrow_df<Value: key + store>(
         movescription: &Movescription,
     ): &Value {
         let name = type_to_name<Value>();
-        dof::borrow<String, Value>(&movescription.id, name)
+        df::borrow<String, Value>(&movescription.id, name)
     }
 
-    /// Borrow the `Value` type dof of the movescription mutably
-    public fun borrow_dof_mut<Value: key + store>(
+    /// Borrow the `Value` type dynamic field of the movescription mutably
+    public fun borrow_df_mut<Value: key + store>(
         movescription: &mut Movescription,
     ): &mut Value {
         let name = type_to_name<Value>();
-        dof::borrow_mut<String, Value>(&mut movescription.id, name)
+        df::borrow_mut<String, Value>(&mut movescription.id, name)
     }
 
-    /// Returns the `Value` type dof of the movescription
-    public fun remove_dof<Value: key + store>(
+    /// Returns the `Value` type dynamic field of the movescription
+    public fun remove_df<Value: key + store>(
         movescription: &mut Movescription,
     ): Value {
         let name = type_to_name<Value>();
-        let value: Value = dof::remove<String, Value>(&mut movescription.id, name);
+        let value: Value = df::remove<String, Value>(&mut movescription.id, name);
         movescription.attach_coin = movescription.attach_coin - 1;
         value
     }
 
-    /// Returns if the movescription contains the `Value` type dof
-    public fun exists_dof<Value: key + store>(
+    /// Returns if the movescription contains the `Value` type dynamic field
+    public fun exists_df<Value: key + store>(
         movescription: &Movescription,
     ): bool {
         let name = type_to_name<Value>();
-        dof::exists_with_type<String, Value>(&movescription.id, name)
+        df::exists_with_type<String, Value>(&movescription.id, name)
     }
 
     fun type_to_name<T>() : String {
         type_name::into_string(type_name::get_with_original_ids<T>())
     }
 
-    /// Returns if the movescription contains any dof
-    public fun contains_dof(movescription: &Movescription,): bool{
+    /// Returns if the movescription contains any dynamic field
+    public fun contains_df(movescription: &Movescription,): bool{
         movescription.attach_coin > 0
     }
 
@@ -703,8 +703,8 @@ module smartinscription::movescription {
         inscription.attach_coin
     }
 
-    /// Get the dynamic object field count of the inscription
-    public fun attach_dof(inscription: &Movescription): u64 {
+    /// Get the dynamic field count of the inscription
+    public fun attach_df(inscription: &Movescription): u64 {
         inscription.attach_coin
     }
 
