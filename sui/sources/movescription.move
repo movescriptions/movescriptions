@@ -258,6 +258,7 @@ module smartinscription::movescription {
         });
     }
 
+    #[allow(unused_function)]
     #[lint_allow(self_transfer)]
     fun do_deploy_with_fee(
         deploy_record: &mut DeployRecord,
@@ -620,6 +621,16 @@ module smartinscription::movescription {
 
     public entry fun inject_sui_entry(inscription: &mut Movescription, receive: Coin<SUI>) {
         inject_sui(inscription, receive);
+    }
+    
+    // Security by check tick
+    public fun check_tick(inscription: &Movescription, tick: vector<u8>): bool {
+        let tick_str: String = string(tick);
+        if (inscription.tick == tick_str) {
+            true
+        } else {
+            false
+        }
     }
 
     /// Interface for object combination
