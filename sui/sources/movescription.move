@@ -1,6 +1,5 @@
 module smartinscription::movescription {
     use std::ascii::{Self, string, String};
-    use std::string;
     use std::vector;
     use std::option::{Self, Option};
     use std::type_name;
@@ -141,7 +140,7 @@ module smartinscription::movescription {
         sender: address,
         tick: String,
         amount: u64,
-        message: string::String,
+        message: std::string::String,
     }
 
     struct NewEpoch has copy, drop {
@@ -259,6 +258,7 @@ module smartinscription::movescription {
         });
     }
 
+    #[allow(unused_function)]
     #[lint_allow(self_transfer)]
     fun do_deploy_with_fee(
         deploy_record: &mut DeployRecord,
@@ -513,7 +513,7 @@ module smartinscription::movescription {
                 sender: tx_context::sender(ctx),
                 tick: tick,
                 amount: amount,                
-                message: string::utf8(message),
+                message: std::string::utf8(message),
             }
         });
 
@@ -621,6 +621,13 @@ module smartinscription::movescription {
 
     public entry fun inject_sui_entry(inscription: &mut Movescription, receive: Coin<SUI>) {
         inject_sui(inscription, receive);
+    }
+    
+    // Security by check tick
+    public fun check_tick(inscription: &Movescription, tick: vector<u8>): bool {
+        to_uppercase(&mut tick);
+        let tick_str: String = string(tick);
+        inscription.tick == tick_str
     }
 
     /// Interface for object combination

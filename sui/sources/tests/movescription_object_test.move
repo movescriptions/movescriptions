@@ -202,5 +202,27 @@ module smartinscription::movescription_object_test{
         movescription::do_merge(&mut ms, second_ms);
         movescription::drop_movescription_for_testing(ms);
     }
-    
+
+    #[test]
+    fun test_check_tick(){
+        let tick = std::ascii::string(b"MOVE");
+        let tx_context = tx_context::dummy();
+        let acc_balance = balance::create_for_testing<SUI>(50u64);
+        let amount = 100u64;
+        let ms = movescription::new_movescription_for_testing(amount, tick, acc_balance, option::none(), &mut tx_context);
+        assert!(movescription::check_tick(&ms, b"MOVE"), 0);
+        movescription::drop_movescription_for_testing(ms);
+    }
+
+    #[test]
+    #[expected_failure]
+    fun test_check_tick_failed(){
+        let tick = std::ascii::string(b"MOVE");
+        let tx_context = tx_context::dummy();
+        let acc_balance = balance::create_for_testing<SUI>(50u64);
+        let amount = 100u64;
+        let ms = movescription::new_movescription_for_testing(amount, tick, acc_balance, option::none(), &mut tx_context);
+        assert!(movescription::check_tick(&ms, b"MAVE"), 0);
+        movescription::drop_movescription_for_testing(ms);
+    }
 }
