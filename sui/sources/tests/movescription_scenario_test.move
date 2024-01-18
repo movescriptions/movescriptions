@@ -1,5 +1,5 @@
 #[test_only]
-module smartinscription::test_movescription {
+module smartinscription::movescription_scenario_test {
     use sui::clock;
     use sui::sui::SUI;
     use sui::coin;
