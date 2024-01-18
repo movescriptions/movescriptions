@@ -1,6 +1,6 @@
 module smartinscription::movescription {
     use std::ascii::{Self, string, String};
-    use std::string;
+    // use std::string;
     use std::vector;
     use std::option::{Self, Option};
     use sui::object::{Self, UID, ID};
@@ -135,7 +135,7 @@ module smartinscription::movescription {
         sender: address,
         tick: String,
         amount: u64,
-        message: string::String,
+        message: std::string::String,
     }
 
     struct NewEpoch has copy, drop {
@@ -500,7 +500,7 @@ module smartinscription::movescription {
                 sender: tx_context::sender(ctx),
                 tick: tick,
                 amount: amount,                
-                message: string::utf8(message),
+                message: std::string::utf8(message),
             }
         });
 
@@ -634,6 +634,16 @@ module smartinscription::movescription {
         name: Name
     ): bool {
         dof::exists_<Name>(&movescription.id, name)
+    }
+
+    // Security by check tick
+    public fun check_tick(inscription: &Movescription, tick: vector<u8>): bool {
+        let tick_str: String = string(tick);
+        if (inscription.tick == tick_str) {
+            true
+        } else {
+            false
+        }
     }
 
     // ===== Migrate functions =====
