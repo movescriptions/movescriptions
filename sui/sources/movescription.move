@@ -1,6 +1,5 @@
 module smartinscription::movescription {
     use std::ascii::{Self, string, String};
-    use std::string;
     use std::vector;
     use std::option::{Self, Option};
     use std::type_name;
@@ -141,7 +140,7 @@ module smartinscription::movescription {
         sender: address,
         tick: String,
         amount: u64,
-        message: string::String,
+        message: std::string::String,
     }
 
     struct NewEpoch has copy, drop {
@@ -513,7 +512,7 @@ module smartinscription::movescription {
                 sender: tx_context::sender(ctx),
                 tick: tick,
                 amount: amount,                
-                message: string::utf8(message),
+                message: std::string::utf8(message),
             }
         });
 
