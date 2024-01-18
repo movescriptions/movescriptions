@@ -625,12 +625,9 @@ module smartinscription::movescription {
     
     // Security by check tick
     public fun check_tick(inscription: &Movescription, tick: vector<u8>): bool {
+        to_uppercase(&mut tick);
         let tick_str: String = string(tick);
-        if (inscription.tick == tick_str) {
-            true
-        } else {
-            false
-        }
+        inscription.tick == tick_str
     }
 
     /// Interface for object combination
