@@ -2,7 +2,6 @@ module smartinscription::movescription {
     use std::ascii::{Self, string, String};
     use std::vector;
     use std::option::{Self, Option};
-    use std::type_name;
     use sui::object::{Self, UID, ID};
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
@@ -12,7 +11,6 @@ module smartinscription::movescription {
     use sui::table::{Self, Table};
     use sui::sui::SUI;
     use sui::clock::{Self, Clock};
-    use sui::dynamic_field as df;
     use sui::package;
     use sui::display;
     use smartinscription::string_util::{to_uppercase};
@@ -285,7 +283,7 @@ module smartinscription::movescription {
         assert!(fee_scription.amount >= deploy_fee_amount, ENotEnoughDeployFee);
         let deploy_fee = do_split(fee_scription, deploy_fee_amount, ctx);
         //Burn the fee and Return the acc SUI to the deployer
-        let acc_in_deploy_fee = do_burn(fee_tick_record, deploy_fee, vector::empty(), ctx);
+        let acc_in_deploy_fee = do_burn(fee_tick_record, deploy_fee, ctx);
         let deployer: address = tx_context::sender(ctx);
         transfer::public_transfer(acc_in_deploy_fee, deployer); 
         do_deploy(deploy_record, tick, total_supply, start_time_ms, epoch_count, mint_fee, ctx);
@@ -493,8 +491,17 @@ module smartinscription::movescription {
         do_merge(inscription1, inscription2);
     }
 
-    /// Burn Movescription without BurnRecipt
+    /// Burn inscription and return the acc SUI, without message and BurnRecipt
     public fun do_burn(
+        tick_record: &mut TickRecord,
+        inscription: Movescription,
+        ctx: &mut TxContext
+    ) : Coin<SUI> {
+        do_burn_with_message(tick_record, inscription, vector::empty(), ctx)
+    }
+
+    /// Burn Movescription without BurnRecipt
+    public fun do_burn_with_message(
         tick_record: &mut TickRecord,
         inscription: Movescription,
         message: vector<u8>,
@@ -528,7 +535,7 @@ module smartinscription::movescription {
     ) : (Coin<SUI>, BurnReceipt) {
         let tick = inscription.tick;
         let amount = inscription.amount;
-        let acc = do_burn(tick_record, inscription, message, ctx);
+        let acc = do_burn_with_message(tick_record, inscription, message, ctx);
 
         let receipt = BurnReceipt {
             id: object::new(ctx),
@@ -553,7 +560,7 @@ module smartinscription::movescription {
         inscription: Movescription,
         ctx: &mut TxContext
     ) {
-        let acc = do_burn(tick_record, inscription, vector::empty(), ctx);
+        let acc = do_burn_with_message(tick_record, inscription, vector::empty(), ctx);
         transfer::public_transfer(acc, tx_context::sender(ctx));
     }
 
@@ -630,60 +637,6 @@ module smartinscription::movescription {
         inscription.tick == tick_str
     }
 
-    /// Interface for object combination
-    /// Add the `Value` type dynamic field to the movescription
-    public fun add_df<Value: store>(
-        movescription: &mut Movescription,
-        value: Value,
-    ) {
-        let name = type_to_name<Value>();
-        df::add(&mut movescription.id, name, value);
-        movescription.attach_coin = movescription.attach_coin + 1;
-    }
-
-    /// Borrow the `Value` type dynamic field of the movescription
-    public fun borrow_df<Value: key + store>(
-        movescription: &Movescription,
-    ): &Value {
-        let name = type_to_name<Value>();
-        df::borrow<String, Value>(&movescription.id, name)
-    }
-
-    /// Borrow the `Value` type dynamic field of the movescription mutably
-    public fun borrow_df_mut<Value: key + store>(
-        movescription: &mut Movescription,
-    ): &mut Value {
-        let name = type_to_name<Value>();
-        df::borrow_mut<String, Value>(&mut movescription.id, name)
-    }
-
-    /// Returns the `Value` type dynamic field of the movescription
-    public fun remove_df<Value: key + store>(
-        movescription: &mut Movescription,
-    ): Value {
-        let name = type_to_name<Value>();
-        let value: Value = df::remove<String, Value>(&mut movescription.id, name);
-        movescription.attach_coin = movescription.attach_coin - 1;
-        value
-    }
-
-    /// Returns if the movescription contains the `Value` type dynamic field
-    public fun exists_df<Value: key + store>(
-        movescription: &Movescription,
-    ): bool {
-        let name = type_to_name<Value>();
-        df::exists_with_type<String, Value>(&movescription.id, name)
-    }
-
-    fun type_to_name<T>() : String {
-        type_name::into_string(type_name::get_with_original_ids<T>())
-    }
-
-    /// Returns if the movescription contains any dynamic field
-    public fun contains_df(movescription: &Movescription,): bool{
-        movescription.attach_coin > 0
-    }
-
     // ===== Migrate functions =====
 
     public fun migrate_deploy_record(deploy_record: &mut DeployRecord) {
@@ -705,16 +658,10 @@ module smartinscription::movescription {
         inscription.tick
     }
 
-    ///[DEPRECATED] use `attach_dof` instead
     public fun attach_coin(inscription: &Movescription): u64 {
         inscription.attach_coin
     }
-
-    /// Get the dynamic field count of the inscription
-    public fun attach_df(inscription: &Movescription): u64 {
-        inscription.attach_coin
-    }
-
+   
     public fun acc(inscription: &Movescription): u64 {
         balance::value(&inscription.acc)
     }
