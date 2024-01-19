@@ -11,4 +11,7 @@ published-at = "0xadad57a2c15969b51b63592b18cad3ce0ca4c303611e0244dc0377abbe034e
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
 
 [addresses]
-smartinscription = "0x0"
+#mainnet
+#smartinscription = "0x830fe26674dc638af7c3d84030e2575f44a2bdc1baa1f4757cfe010a4b106b6a"
+#testnet
+smartinscription = "0x9075f396bbab6549cda72779d7ba22688cc10be2b404865f3e018acaf86e8ec8"

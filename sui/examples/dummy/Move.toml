@@ -1,0 +1,13 @@
+[package]
+name = "Dummy"
+authors = ["dummy"]
+version = "0.0.1"
+#testnet
+published-at = "0x8b085e29a2598451342f00d2d6358fb028c8b564bb3d20160da6b43e59e175cb"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
+SmartInscription = { local = "../../"}
+
+[addresses]
+dummy = "0x0"
