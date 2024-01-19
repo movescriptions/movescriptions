@@ -24,17 +24,11 @@
 
 ### Types & Objects:
 
-* Movescription: 0x9075f396bbab6549cda72779d7ba22688cc10be2b404865f3e018acaf86e8ec8::movescription::Movescription
-* DeployRecord: 0x279b65d696ed8b44d98342e10713aada446ba626242088f3d93cd93c040e2325
-* MOVE TickRecord: 0xb00865b40d2472243aeb71a4ee3dea4399bbb690568aa9ad33727c68530772e8
-
-### v2
-
-* DeployTx: 6dYxKEH5fpfpZjtgYMGc1ASoZNqMY7udP3QV7R1zNW5U
-* PackageID: 0x9075f396bbab6549cda72779d7ba22688cc10be2b404865f3e018acaf86e8ec8
-
+* Movescription: 0xde652a9bbdf6e34c39d3bb758e9010437ddacf8b5b03dae68e400034a03970e3::movescription::Movescription
+* DeployRecord: 0xeba12b9746cc08556137a66cd18b5edcdb05baffa8ada6b0a3a44c22c59fa205
+* MOVE TickRecord: 0x16d649213586580b1c40bb3217dd0883908fe2e3b1a4b2c8b4abffbc2178e176
 
 ### v3
 
-* DeployTx: 2vVPtBdSKnzsVyH6xh8ZD36qS2S2AdX13ehHrx3SX9wG
-* PackageID: 0xadad57a2c15969b51b63592b18cad3ce0ca4c303611e0244dc0377abbe034e5d
+* DeployTx: A9oz61bgG5YP6t1cgULhDiaoJvTUaJ3rVkpN3w7Yf4aD
+* PackageID: 0xde652a9bbdf6e34c39d3bb758e9010437ddacf8b5b03dae68e400034a03970e3

@@ -3,11 +3,11 @@ name = "Dummy"
 authors = ["dummy"]
 version = "0.0.1"
 #testnet
-published-at = "0x8b085e29a2598451342f00d2d6358fb028c8b564bb3d20160da6b43e59e175cb"
+published-at = "0x92ad036a933f44f0f132e9cd6a539f3a9ae481bd3ee99ed6b4b213afecb7c515"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
-SmartInscription = { local = "../../"}
+SmartInscription = { local = "../../../sui"}
 
 [addresses]
 dummy = "0x0"
