@@ -285,7 +285,7 @@ module smartinscription::movescription {
         assert!(fee_scription.amount >= deploy_fee_amount, ENotEnoughDeployFee);
         let deploy_fee = do_split(fee_scription, deploy_fee_amount, ctx);
         //Burn the fee and Return the acc SUI to the deployer
-        let acc_in_deploy_fee = do_burn(fee_tick_record, deploy_fee, vector::empty(), ctx);
+        let acc_in_deploy_fee = do_burn(fee_tick_record, deploy_fee, ctx);
         let deployer: address = tx_context::sender(ctx);
         transfer::public_transfer(acc_in_deploy_fee, deployer); 
         do_deploy(deploy_record, tick, total_supply, start_time_ms, epoch_count, mint_fee, ctx);
@@ -493,8 +493,17 @@ module smartinscription::movescription {
         do_merge(inscription1, inscription2);
     }
 
-    /// Burn Movescription without BurnRecipt
+    /// Burn inscription and return the acc SUI, without message and BurnRecipt
     public fun do_burn(
+        tick_record: &mut TickRecord,
+        inscription: Movescription,
+        ctx: &mut TxContext
+    ) : Coin<SUI> {
+        do_burn_with_message(tick_record, inscription, vector::empty(), ctx)
+    }
+
+    /// Burn Movescription without BurnRecipt
+    public fun do_burn_with_message(
         tick_record: &mut TickRecord,
         inscription: Movescription,
         message: vector<u8>,
@@ -528,7 +537,7 @@ module smartinscription::movescription {
     ) : (Coin<SUI>, BurnReceipt) {
         let tick = inscription.tick;
         let amount = inscription.amount;
-        let acc = do_burn(tick_record, inscription, message, ctx);
+        let acc = do_burn_with_message(tick_record, inscription, message, ctx);
 
         let receipt = BurnReceipt {
             id: object::new(ctx),
@@ -553,7 +562,7 @@ module smartinscription::movescription {
         inscription: Movescription,
         ctx: &mut TxContext
     ) {
-        let acc = do_burn(tick_record, inscription, vector::empty(), ctx);
+        let acc = do_burn_with_message(tick_record, inscription, vector::empty(), ctx);
         transfer::public_transfer(acc, tx_context::sender(ctx));
     }
 
