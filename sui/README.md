@@ -19,6 +19,10 @@
 * DeployTx: [93zSxeSAKw9ZfpaGVLBV1m7f9MofAGVRSxKM8c8tBqpL](https://suiexplorer.com/txblock/93zSxeSAKw9ZfpaGVLBV1m7f9MofAGVRSxKM8c8tBqpL)
 * PackageID: [0xebbba763f5fc01d90c2791c03536a373791b634600e81d4e08b85f275f1274fa](https://suiexplorer.com/object/0xebbba763f5fc01d90c2791c03536a373791b634600e81d4e08b85f275f1274fa)
 
+### v3
+
+* DeployTx: HzKiRFwWjfN6KWiqNUMyeThkTXQwoau89Xnrpy2Zu7vv
+* PackageID: 0x2670cf9d9c9ca2b63581ccfefcf3cb64837d878b24ca86928e05ecd3f3d82488
 
 ## Testnet
 
