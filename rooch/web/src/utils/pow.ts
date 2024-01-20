@@ -1,5 +1,5 @@
 import Long from "long"
-import { arrayify as bytesArrayify, hexlify as bytesHexlify, BytesLike } from "@ethersproject/bytes"
+import { arrayify as bytesArrayify, hexlify as bytesHexlify, type BytesLike as bytesBytesLike } from "@ethersproject/bytes"
 import { keccak256 } from "@ethersproject/keccak256"
 
 export const hash = (data: BytesLike): Uint8Array =>{
@@ -32,3 +32,4 @@ export const pow = (powData: Uint8Array, nonce: number)=>{
 
 export const hexlify = bytesHexlify;
 export const arrayify = bytesArrayify;
+export type BytesLike = bytesBytesLike;

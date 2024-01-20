@@ -100,7 +100,7 @@ function App() {
     const powInput = await getPowInput(account, tick, value)
 
     if (powInput) {
-      minerManager = new MinerManager(8, 0);
+      minerManager = new MinerManager(0, 1);
 
       return new Promise((resolve, reject) => {
         const task: IMinerTask = {
