@@ -134,7 +134,7 @@ function App() {
 
     const tick = 'move';
     const amount = 1000;
-    const difficulty = 2;
+    const difficulty = 3;
 
     try {
       const result = await searchNonce(account, tick, amount, difficulty)

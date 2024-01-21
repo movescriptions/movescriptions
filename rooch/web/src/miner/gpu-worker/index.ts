@@ -1,3 +1,4 @@
+import Long from "long"
 import { MintPayload } from "../types"
 import { arrayify, hexlify, type BytesLike } from "@ethersproject/bytes"
 import { keccak256 } from "@ethersproject/keccak256"
@@ -70,21 +71,26 @@ export const hash = (data: BytesLike): Uint8Array =>{
   return arrayify(keccak256(data))
 }
 
-export function concatBytes(array: Uint8Array, u32: number): Uint8Array {
-  const buffer = new ArrayBuffer(4); // 4 bytes for 32bit number
-  const view = new DataView(buffer);
-  view.setUint32(0, u32, true); // true for little-endian
+export function concatArrayAndNonce(array: Uint8Array, nonceHigh32: number, nonceLow32: number): Uint8Array {
+  const highBuffer = new ArrayBuffer(4);  
+  const highView = new DataView(highBuffer);
+  highView.setUint32(0, nonceHigh32, true);
+  const highByteArray = new Uint8Array(highBuffer);
 
-  const byteArray = new Uint8Array(buffer);
-
-  const result = new Uint8Array(array.length + byteArray.length);
+  const lowBuffer = new ArrayBuffer(4);  
+  const lowView = new DataView(lowBuffer);
+  lowView.setUint32(0, nonceLow32, true);
+  const lowByteArray = new Uint8Array(lowBuffer);
+ 
+  const result = new Uint8Array(array.length + highByteArray.length + lowByteArray.length);
   result.set(array);
-  result.set(byteArray, array.length);
+  result.set(lowByteArray, array.length);
+  result.set(highByteArray, array.length + lowByteArray.length);
   return result;
 }
 
-export const makeKeyPrefix = (powData: Uint8Array, nonceHigh: number): Uint8Array=>{
-  return concatBytes(hash(powData), nonceHigh)
+export const makeKey = (powData: Uint8Array, nonceHigh: number): Uint8Array=>{
+  return concatArrayAndNonce(hash(powData), nonceHigh, 0)
 }
 
 function getHigh32Bits(num: number): number {
@@ -92,7 +98,7 @@ function getHigh32Bits(num: number): number {
 }
 
 function concatNonce(high: number, low: number): number {
-  return (high * Math.pow(2, 32)) + (low >>> 0);
+  return (high * Math.pow(2, 32)) + low;
 }
 
 const searchNonce = async (payload: MintPayload) => {
@@ -110,20 +116,32 @@ const searchNonce = async (payload: MintPayload) => {
     return;
   }
 
+  let count = 0;
+  
   while(isMine && nonce < seqEnd) {
     const nonceHigh = getHigh32Bits(nonce);
-    const keyPrefixBytes = makeKeyPrefix(powData, nonceHigh);
-    const nonceLows = await nonce_search(keyPrefixBytes, difficulty);
-
+    const keyBytes = makeKey(powData, nonceHigh);
+    const result = await nonce_search(keyBytes, difficulty);
+    const nonceLows = result.result;
+    count = count + result.numWorkgroups;
+    
     if (nonceLows && nonceLows.length > 0) {
       console.log(
-        `[Miner]: found ${nonceLows.length} nonce:${nonceLows}, match difficulty: ${difficulty}`
+        `[Miner]: found ${nonceLows.length} high nonce:${nonceHigh}, low nonces:${nonceLows}, match difficulty: ${difficulty}`
       );
 
       for (let i = 0; i < nonceLows.length; i++) {
         const nonce = concatNonce(nonceHigh, nonceLows[i]);
 
         const data = pow(powData, nonce)
+
+        const longVal = Long.fromNumber(nonce, true);
+        const byteArray = new Uint8Array(longVal.toBytesLE());
+
+        console.log(
+          `[Miner]: nonce:${nonce}, nonceHex:${hexlify(byteArray)}, hash: ${hexlify(data)}`
+        );
+
         if (matchDifficulty(data, difficulty)) {
           notifyEnd(id, nonce, hexlify(data))
           return
@@ -135,8 +153,9 @@ const searchNonce = async (payload: MintPayload) => {
 
     if (nonce % 10000 == 0) {
       const now = new Date().getTime();
-      const hashRate = Math.floor(10000 / ((now - lastTime) / 1000));
+      const hashRate = Math.floor(count / ((now - lastTime) / 1000));
       lastTime = now;
+      count = 0;
 
       notifyProgress(id, hashRate)
       await sleep(0)
@@ -146,4 +165,6 @@ const searchNonce = async (payload: MintPayload) => {
   }
 
   notifyEnd(id, undefined, undefined)
+
+  console.log(`[Miner]: stoped`);
 }

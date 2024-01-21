@@ -1,6 +1,6 @@
 
 
-export const MAX_SEQUENCE = 0xffffffff;
+export const MAX_SEQUENCE = Number.MAX_SAFE_INTEGER;
 
 export enum Status {
   Init,

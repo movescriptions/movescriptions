@@ -194,7 +194,23 @@ export function shader(device: GPUDevice): string {
     keccak_output(&ctx, output);
   }
   
-  fn check_difficulty(hash: array<u32, 8>, n: u32) -> bool {
+  fn check_difficulty_bytes(hash: array<u32, 8>, n: u32) -> bool {
+    var byte_index: u32 = n / 4;
+    var remainder: u32 = n % 4;
+
+    for (var i: u32 = 0; i < byte_index; i++) {
+      if (hash[i] != 0u) { return false; }
+    }
+
+    if (remainder != 0u) {
+      var mask: u32 = 0xFFFFFFFFu << ((4 - remainder) * 8u);
+      if ((to_big_endian(hash[byte_index]) & mask) != 0u) { return false; }
+    }
+
+    return true;
+  }
+
+  fn check_difficulty_bits(hash: array<u32, 8>, n: u32) -> bool {
     var byte_index: u32 = n / 32;
     var bit_index: u32 = n % 32;
 
@@ -232,14 +248,22 @@ export function shader(device: GPUDevice): string {
     }
 
     var nonce = nonce_start + global_id.x;
-    input[key_len-1] |= nonce;
+    input[key_len-2] = nonce;
 
     keccak256(&input, key_len, &hash);
   
-    if (check_difficulty(hash, difficulty)) {
+    if (check_difficulty_bytes(hash, difficulty)) {
       var index = atomicAdd(&output_count, 1);
       if (index < arrayLength(&output)) {
         output[index] = nonce;
+
+        for (var i: u32 = 0; i < key_len; i = i + 1u) {
+          log_buffer[i] = input[i];
+        }
+
+        for (var i:u32 = key_len; i < key_len + KECCAK256_OUTPUT_SIZE; i = i + 1u) {
+          log_buffer[i] = hash[i];
+        }
       }
     }
 

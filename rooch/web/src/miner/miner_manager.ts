@@ -65,6 +65,8 @@ export class MinerManager {
   }
 
   public stop() {
+    console.log("stop mint")
+
     this.currentTask = undefined;
     this.workerStatus = new Map<string, IWorkerStatus>();
 
@@ -75,12 +77,24 @@ export class MinerManager {
 
     // Stop CPU workers
     this.cpuWorkers.forEach((worker: Worker) => {
+        console.log("stop ", worker)
+        worker.postMessage({
+          type: "stop",
+          payload: {}
+        });
+
         worker.terminate();
     });
-    this.gpuWorkers = [];
+    this.cpuWorkers = [];
 
     // Stop GPU workers
     this.gpuWorkers.forEach((worker: Worker) => {
+        console.log("stop ", worker)
+        worker.postMessage({
+          type: "stop",
+          payload: {}
+        });
+
         worker.terminate();
     });
     this.gpuWorkers = [];
@@ -133,7 +147,7 @@ export class MinerManager {
       
       if (this.gpuWorkerCount > 0) {
         for (let i = 0; i < this.gpuWorkerCount; i++) {
-          const gpuSequencePerWorker = Math.floor(MAX_SEQUENCE / (this.gpuWorkerCount * 4));
+          const gpuSequencePerWorker = Math.floor(MAX_SEQUENCE / this.gpuWorkerCount);
 
           const workerTask: IWorkerTask = {
             id: uuidv4(),

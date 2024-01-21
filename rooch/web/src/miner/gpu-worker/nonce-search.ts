@@ -1,5 +1,6 @@
 import { shader } from './nonce-search.wgsl';
 import { u32 } from './types';
+
 const debug = false;
 
 async function getGPUDevice(): Promise<GPUDevice> {
@@ -90,6 +91,10 @@ export async function nonce_search(key: Uint8Array, difficulty: number) {
 
   const nonceStart = 0;
   const nonceEnd = gpu.device.limits.maxComputeWorkgroupSizeX;
+
+  if (debug) {
+    console.log("gpu limit:", gpu.device.limits)
+  }
 
   const numWorkgroups = calcNumWorkgroups(gpu.device, nonceEnd - nonceStart);
 
@@ -254,10 +259,18 @@ export async function nonce_search(key: Uint8Array, difficulty: number) {
     console.log('[Shader Log]:', logContent);
     console.log('[Shader Log]:', u32(logContent));
     console.log(
-      '[Shader Log]:',
+      '[Shader Log]: Input',
       '0x' +
         logContent
-          .subarray(0, 32)
+          .subarray(0, 40)
+          .reduce((a: any, b: any) => a + b.toString(16).padStart(2, '0'), '')
+    );
+
+    console.log(
+      '[Shader Log]: Hash',
+      '0x' +
+        logContent
+          .subarray(40, 72)
           .reduce((a: any, b: any) => a + b.toString(16).padStart(2, '0'), '')
     );
   }
@@ -270,5 +283,9 @@ export async function nonce_search(key: Uint8Array, difficulty: number) {
       result.push(resultBuf[i]);
     }
   }
-  return result;
+
+  return {
+    result: result,
+    numWorkgroups: numWorkgroups,
+  };
 }
