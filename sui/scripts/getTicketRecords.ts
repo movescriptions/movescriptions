@@ -1,7 +1,7 @@
-import { loadSync as loadEnvSync } from "https://deno.land/std/dotenv/mod.ts"
+import { loadSync } from "https://deno.land/std/dotenv/mod.ts"
 import { SuiClient, getFullnodeUrl } from "npm:@mysten/sui.js/client";
 
-const env = loadEnvSync();
+const env = loadSync();
 const deploy_id: string = env.DEPLOY_RECORD;
 
 const client = new SuiClient({

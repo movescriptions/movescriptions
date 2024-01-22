@@ -1,9 +1,9 @@
-import { loadSync as loadEnvSync } from "https://deno.land/std/dotenv/mod.ts"
+import { loadSync } from "https://deno.land/std/dotenv/mod.ts"
 import { getFullnodeUrl, SuiClient } from 'npm:@mysten/sui.js/client';
 import { Ed25519Keypair } from 'npm:@mysten/sui.js/keypairs/ed25519';
 import { TransactionBlock } from 'npm:@mysten/sui.js/transactions';
 
-const env = loadEnvSync();
+const env = loadSync();
 const secret_key_mnemonics = env.SECRET_KEY_ED25519_1_MNEMONICS;
 const keypair = Ed25519Keypair.deriveKeypair(secret_key_mnemonics);
 console.log(keypair.getPublicKey().toSuiAddress())
