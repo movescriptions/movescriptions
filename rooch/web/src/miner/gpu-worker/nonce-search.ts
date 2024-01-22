@@ -14,17 +14,8 @@ async function getGPUDevice(): Promise<GPUDevice> {
   }
 }
 
-function calcNumWorkgroups(device: GPUDevice, taskNum: number): number {
-  const numWorkgroups = Math.ceil(
-    taskNum / device.limits.maxComputeWorkgroupSizeX
-  );
-  if (numWorkgroups > device.limits.maxComputeWorkgroupsPerDimension) {
-    throw `Input array too large. Max size is ${
-      device.limits.maxComputeWorkgroupsPerDimension *
-      device.limits.maxComputeWorkgroupSizeX
-    }.`;
-  }
-  return numWorkgroups;
+function calcNumWorkgroups(device: GPUDevice): number {
+  return device.limits.maxComputeWorkgroupsPerDimension;
 }
 
 function padMessage(bytes: Uint8Array, size: number): Uint32Array {
@@ -84,19 +75,19 @@ export async function gpu_init() {
  * @param {Uint8Array[]} messages messages to hash. Each message must be 32-bit aligned with the same size
  * @returns {Uint8Array} the set of resulting hashes
  */
-export async function nonce_search(key: Uint8Array, difficulty: number) {
+export async function nonce_search(key: Uint8Array, difficulty: number, nonceStart: number) {
   check(key);
 
   gpu = await gpu_init();
 
-  const nonceStart = 0;
-  const nonceEnd = gpu.device.limits.maxComputeWorkgroupSizeX;
+  const numWorkgroups = calcNumWorkgroups(gpu.device);
 
   if (debug) {
     console.log("gpu limit:", gpu.device.limits)
+    console.log("gpu limit maxComputeWorkgroupsPerDimension:", gpu.device.limits.maxComputeWorkgroupsPerDimension)
+    console.log("nonceStart:", nonceStart)
+    console.log("numWorkgroups:", numWorkgroups)
   }
-
-  const numWorkgroups = calcNumWorkgroups(gpu.device, nonceEnd - nonceStart);
 
   // key
   const u32KeyArray = padMessage(key, key.length / 4);
@@ -116,15 +107,6 @@ export async function nonce_search(key: Uint8Array, difficulty: number) {
   });
   new Uint32Array(nonceStartBuffer.getMappedRange()).set([nonceStart]);
   nonceStartBuffer.unmap();
-
-  // nonceEnd
-  const nonceEndBuffer = gpu.device.createBuffer({
-    mappedAtCreation: true,
-    size: Uint32Array.BYTES_PER_ELEMENT,
-    usage: GPUBufferUsage.STORAGE,
-  });
-  new Uint32Array(nonceEndBuffer.getMappedRange()).set([nonceEnd]);
-  nonceEndBuffer.unmap();
 
   // difficulty
   const difficultyBuffer = gpu.device.createBuffer({
@@ -173,29 +155,23 @@ export async function nonce_search(key: Uint8Array, difficulty: number) {
       {
         binding: 2,
         resource: {
-          buffer: nonceEndBuffer,
+          buffer: difficultyBuffer,
         },
       },
       {
         binding: 3,
         resource: {
-          buffer: difficultyBuffer,
+          buffer: resultBuffer,
         },
       },
       {
         binding: 4,
         resource: {
-          buffer: resultBuffer,
-        },
-      },
-      {
-        binding: 5,
-        resource: {
           buffer: resultCountBuffer,
         },
       },
       {
-        binding: 6,
+        binding: 5,
         resource: {
           buffer: logBuffer,
         },
@@ -208,7 +184,7 @@ export async function nonce_search(key: Uint8Array, difficulty: number) {
   const passEncoder = commandEncoder.beginComputePass();
   passEncoder.setPipeline(gpu.computePipeline);
   passEncoder.setBindGroup(0, bindGroup);
-  passEncoder.dispatchWorkgroups(numWorkgroups);
+  passEncoder.dispatchWorkgroups(65535);
   passEncoder.end();
 
   const gpuResultBuffer = gpu.device.createBuffer({
@@ -254,6 +230,8 @@ export async function nonce_search(key: Uint8Array, difficulty: number) {
   await gpuResultCountBuffer.mapAsync(GPUMapMode.READ);
   await gpuLogReadBuffer.mapAsync(GPUMapMode.READ);
 
+  const count = new Uint32Array(gpuResultCountBuffer.getMappedRange())[0];
+
   if (debug) {
     const logContent = new Uint8Array(gpuLogReadBuffer.getMappedRange());
     console.log('[Shader Log]:', logContent);
@@ -273,19 +251,20 @@ export async function nonce_search(key: Uint8Array, difficulty: number) {
           .subarray(40, 72)
           .reduce((a: any, b: any) => a + b.toString(16).padStart(2, '0'), '')
     );
+
+    console.log('[Shader Log]: counter:', count);
   }
 
   const result = new Array<number>();
-  const count = new Uint32Array(gpuResultCountBuffer.getMappedRange())[0];
   if (count > 0) {
     const resultBuf = new Uint32Array(gpuResultBuffer.getMappedRange());
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < Math.min(count, resultBuf.length); i++) {
       result.push(resultBuf[i]);
     }
   }
 
   return {
     result: result,
-    numWorkgroups: numWorkgroups,
+    numWorkgroups: numWorkgroups * 256,
   };
 }

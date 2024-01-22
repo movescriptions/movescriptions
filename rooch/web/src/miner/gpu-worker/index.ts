@@ -121,7 +121,7 @@ const searchNonce = async (payload: MintPayload) => {
   while(isMine && nonce < seqEnd) {
     const nonceHigh = getHigh32Bits(nonce);
     const keyBytes = makeKey(powData, nonceHigh);
-    const result = await nonce_search(keyBytes, difficulty);
+    const result = await nonce_search(keyBytes, difficulty, 0);
     const nonceLows = result.result;
     count = count + result.numWorkgroups;
     
@@ -151,7 +151,7 @@ const searchNonce = async (payload: MintPayload) => {
       break;
     }
 
-    if (nonce % 10000 == 0) {
+    if (nonce % 2 == 0) {
       const now = new Date().getTime();
       const hashRate = Math.floor(count / ((now - lastTime) / 1000));
       lastTime = now;

@@ -227,18 +227,13 @@ export function shader(device: GPUDevice): string {
 
   @group(0) @binding(0) var<storage, read> key : array<u32>;
   @group(0) @binding(1) var<storage, read> nonce_start : u32;
-  @group(0) @binding(2) var<storage, read> nonce_end : u32;
-  @group(0) @binding(3) var<storage, read> difficulty : u32;
-  @group(0) @binding(4) var<storage, read_write> output: array<u32>;
-  @group(0) @binding(5) var<storage, read_write> output_count: atomic<u32>;
-  @group(0) @binding(6) var<storage, read_write> log_buffer: array<u32>;
+  @group(0) @binding(2) var<storage, read> difficulty : u32;
+  @group(0) @binding(3) var<storage, read_write> output: array<u32>;
+  @group(0) @binding(4) var<storage, read_write> output_count: atomic<u32>;
+  @group(0) @binding(5) var<storage, read_write> log_buffer: array<u32>;
 
   @compute @workgroup_size(${device.limits.maxComputeWorkgroupSizeX})
   fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    if (global_id.x >= nonce_end - nonce_start) {
-      return;
-    }
-  
     var key_len = arrayLength(&key);
     var input : array<u32, KECCAK256_INPUT_BUF_SIZE> = array<u32, KECCAK256_INPUT_BUF_SIZE>();
     var hash : array<u32, KECCAK256_OUTPUT_SIZE> =  array<u32, KECCAK256_OUTPUT_SIZE>();
@@ -266,8 +261,6 @@ export function shader(device: GPUDevice): string {
         }
       }
     }
-
-    log_buffer[63] = 1;
   }
 `;
 }
