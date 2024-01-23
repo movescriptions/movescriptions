@@ -121,9 +121,9 @@ const searchNonce = async (payload: MintPayload) => {
   while(isMine && nonce < seqEnd) {
     const nonceHigh = getHigh32Bits(nonce);
     const keyBytes = makeKey(powData, nonceHigh);
-    const result = await nonce_search(keyBytes, difficulty, 0);
+    const result = await nonce_search(keyBytes, difficulty);
     const nonceLows = result.result;
-    count = count + result.numWorkgroups;
+    count = count + result.calcCount;
     
     if (nonceLows && nonceLows.length > 0) {
       console.log(

@@ -226,11 +226,10 @@ export function shader(device: GPUDevice): string {
   }
 
   @group(0) @binding(0) var<storage, read> key : array<u32>;
-  @group(0) @binding(1) var<storage, read> nonce_start : u32;
-  @group(0) @binding(2) var<storage, read> difficulty : u32;
-  @group(0) @binding(3) var<storage, read_write> output: array<u32>;
-  @group(0) @binding(4) var<storage, read_write> output_count: atomic<u32>;
-  @group(0) @binding(5) var<storage, read_write> log_buffer: array<u32>;
+  @group(0) @binding(1) var<storage, read> difficulty : u32;
+  @group(0) @binding(2) var<storage, read_write> output: array<u32>;
+  @group(0) @binding(3) var<storage, read_write> output_count: atomic<u32>;
+  @group(0) @binding(4) var<storage, read_write> log_buffer: array<u32>;
 
   @compute @workgroup_size(${device.limits.maxComputeWorkgroupSizeX})
   fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -242,7 +241,7 @@ export function shader(device: GPUDevice): string {
       input[i] = key[i];
     }
 
-    var nonce = nonce_start + global_id.x;
+    var nonce = global_id.x;
     input[key_len-2] = nonce;
 
     keccak256(&input, key_len, &hash);
@@ -251,7 +250,9 @@ export function shader(device: GPUDevice): string {
       var index = atomicAdd(&output_count, 1);
       if (index < arrayLength(&output)) {
         output[index] = nonce;
+      }
 
+      if (index == 1) {
         for (var i: u32 = 0; i < key_len; i = i + 1u) {
           log_buffer[i] = input[i];
         }

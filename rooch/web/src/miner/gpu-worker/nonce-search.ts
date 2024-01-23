@@ -7,6 +7,7 @@ async function getGPUDevice(): Promise<GPUDevice> {
   const adapter = await navigator.gpu.requestAdapter({
     powerPreference: 'high-performance',
   });
+
   if (!adapter) {
     throw 'No adapter';
   } else {
@@ -75,7 +76,7 @@ export async function gpu_init() {
  * @param {Uint8Array[]} messages messages to hash. Each message must be 32-bit aligned with the same size
  * @returns {Uint8Array} the set of resulting hashes
  */
-export async function nonce_search(key: Uint8Array, difficulty: number, nonceStart: number) {
+export async function nonce_search(key: Uint8Array, difficulty: number) {
   check(key);
 
   gpu = await gpu_init();
@@ -85,7 +86,6 @@ export async function nonce_search(key: Uint8Array, difficulty: number, nonceSta
   if (debug) {
     console.log("gpu limit:", gpu.device.limits)
     console.log("gpu limit maxComputeWorkgroupsPerDimension:", gpu.device.limits.maxComputeWorkgroupsPerDimension)
-    console.log("nonceStart:", nonceStart)
     console.log("numWorkgroups:", numWorkgroups)
   }
 
@@ -98,15 +98,6 @@ export async function nonce_search(key: Uint8Array, difficulty: number, nonceSta
   });
   new Uint32Array(keyBuffer.getMappedRange()).set(u32KeyArray);
   keyBuffer.unmap();
-
-  // nonceStart
-  const nonceStartBuffer = gpu.device.createBuffer({
-    mappedAtCreation: true,
-    size: Uint32Array.BYTES_PER_ELEMENT,
-    usage: GPUBufferUsage.STORAGE,
-  });
-  new Uint32Array(nonceStartBuffer.getMappedRange()).set([nonceStart]);
-  nonceStartBuffer.unmap();
 
   // difficulty
   const difficultyBuffer = gpu.device.createBuffer({
@@ -149,29 +140,23 @@ export async function nonce_search(key: Uint8Array, difficulty: number, nonceSta
       {
         binding: 1,
         resource: {
-          buffer: nonceStartBuffer,
+          buffer: difficultyBuffer,
         },
       },
       {
         binding: 2,
         resource: {
-          buffer: difficultyBuffer,
+          buffer: resultBuffer,
         },
       },
       {
         binding: 3,
         resource: {
-          buffer: resultBuffer,
-        },
-      },
-      {
-        binding: 4,
-        resource: {
           buffer: resultCountBuffer,
         },
       },
       {
-        binding: 5,
+        binding: 4,
         resource: {
           buffer: logBuffer,
         },
@@ -184,13 +169,14 @@ export async function nonce_search(key: Uint8Array, difficulty: number, nonceSta
   const passEncoder = commandEncoder.beginComputePass();
   passEncoder.setPipeline(gpu.computePipeline);
   passEncoder.setBindGroup(0, bindGroup);
-  passEncoder.dispatchWorkgroups(65535);
+  passEncoder.dispatchWorkgroups(numWorkgroups);
   passEncoder.end();
 
   const gpuResultBuffer = gpu.device.createBuffer({
     size: resultSize,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
   });
+
   commandEncoder.copyBufferToBuffer(
     resultBuffer,
     0,
@@ -265,6 +251,6 @@ export async function nonce_search(key: Uint8Array, difficulty: number, nonceSta
 
   return {
     result: result,
-    numWorkgroups: numWorkgroups * 256,
+    calcCount: numWorkgroups * 256,
   };
 }
