@@ -33,6 +33,7 @@ module smartinscription::movescription {
     const BASE_EPOCH_COUNT_FEE: u64 = 100;
     const PROTOCOL_TICK: vector<u8> = b"MOVE";
     const PROTOCOL_START_TIME_MS: u64 = 1704038400*1000;
+    const TICK_NAME_TICK: vector<u8> = b"TICK";
 
     // ======== Errors =========
     const ErrorTickLengthInvaid: u64 = 1;
@@ -56,6 +57,7 @@ module smartinscription::movescription {
     const ENotEnoughDeployFee: u64 = 22;
     const ETemporarilyDisabled: u64 = 23;
     const ErrorNotWitness: u64 = 24;
+    const ErrorUnexpectedTick: u64 = 25;
 
     // ======== Types =========
     struct Movescription has key, store {
@@ -504,7 +506,27 @@ module smartinscription::movescription {
         };
     }
 
-    public(friend) fun do_deploy_with_witness<W: drop>(
+    #[lint_allow(self_transfer)]
+    public fun do_deploy_with_witness<W: drop>(
+        deploy_record: &mut DeployRecord, 
+        tick_name_ms: Movescription,
+        total_supply: u64,
+        init_locked_asset: u64,
+        _witness: W,
+        ctx: &mut TxContext
+    ) : TickRecordV2 {
+        assert!(check_tick(&tick_name_ms, TICK_NAME_TICK), ErrorUnexpectedTick);
+        let Movescription { id, amount: _, tick: _, attach_coin:_, acc, metadata } = tick_name_ms;
+        object::delete(id);
+        //TODO charge deploy fee
+        let acc_coin = coin::from_balance<SUI>(acc, ctx);
+        transfer::public_transfer(acc_coin, tx_context::sender(ctx));
+        let metadata = option::destroy_some(metadata);
+        let tick = ascii::string(metadata.content);
+        internal_deploy_with_witness(deploy_record, tick, total_supply, init_locked_asset, _witness, ctx)
+    }
+
+    public(friend) fun internal_deploy_with_witness<W: drop>(
         deploy_record: &mut DeployRecord, 
         tick: String,
         total_supply: u64,

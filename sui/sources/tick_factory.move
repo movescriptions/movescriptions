@@ -32,7 +32,7 @@ module smartinscription::tick_factory {
 
     #[lint_allow(share_owned)]
     public fun deploy(deploy_record: &mut DeployRecord, ctx: &mut TxContext) {
-        let tick_record = movescription::do_deploy_with_witness(deploy_record, ascii::string(TICK), TOTAL_SUPPLY, INIT_LOCKED_SUI, WITNESS{}, ctx);
+        let tick_record = movescription::internal_deploy_with_witness(deploy_record, ascii::string(TICK), TOTAL_SUPPLY, INIT_LOCKED_SUI, WITNESS{}, ctx);
         let tick_factory = TickFactory{
             tick_names: table::new(ctx),
         };
