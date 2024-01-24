@@ -36,11 +36,13 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function notifyProgress(id: string, hashRate: number) {
+async function notifyProgress(id: string, nonce: number, hash: string, hashRate: number) {
   ctx.postMessage({
     type: 'progress',
     payload: {
       id: id,
+      nonce: nonce,
+      hash: hash,
       hashRate: hashRate,
     }
   });
@@ -119,6 +121,17 @@ const searchNonce = async (payload: MintPayload) => {
   let count = 0;
   
   while(isMine && nonce < seqEnd) {
+    if (nonce % 2 == 0) {
+      const now = new Date().getTime();
+      const hashRate = Math.floor(count / ((now - lastTime) / 1000));
+      lastTime = now;
+      count = 0;
+
+      const data = pow(powData, nonce)
+      notifyProgress(id, nonce, hexlify(data), hashRate)
+      await sleep(0)
+    }
+
     const nonceHigh = getHigh32Bits(nonce);
     const keyBytes = makeKey(powData, nonceHigh);
     const result = await nonce_search(keyBytes, difficulty);
@@ -150,17 +163,7 @@ const searchNonce = async (payload: MintPayload) => {
 
       break;
     }
-
-    if (nonce % 2 == 0) {
-      const now = new Date().getTime();
-      const hashRate = Math.floor(count / ((now - lastTime) / 1000));
-      lastTime = now;
-      count = 0;
-
-      notifyProgress(id, hashRate)
-      await sleep(0)
-    }
-
+    
     nonce = concatNonce(nonceHigh + 1, 0)
   }
 

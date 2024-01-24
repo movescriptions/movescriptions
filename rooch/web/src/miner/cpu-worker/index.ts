@@ -33,11 +33,13 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function notifyProgress(id: string, hashRate: number) {
+async function notifyProgress(id: string, nonce: number, hash: string, hashRate: number) {
   ctx.postMessage({
     type: 'progress',
     payload: {
       id: id,
+      nonce: nonce,
+      hash: hash,
       hashRate: hashRate,
     }
   });
@@ -72,7 +74,7 @@ const searchNonce = async (payload: MintPayload) => {
       const hashRate = Math.floor(10000 / ((now - lastTime) / 1000));
       lastTime = now;
 
-      notifyProgress(id, hashRate)
+      notifyProgress(id, nonce, hexlify(data), hashRate)
       await sleep(0)
     }
 

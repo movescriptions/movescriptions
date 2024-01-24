@@ -1,7 +1,7 @@
 import { shader } from './nonce-search.wgsl';
 import { u32 } from './types';
 
-const debug = true;
+const debug = false;
 
 async function getGPUDevice(): Promise<GPUDevice> {
   const adapter = await navigator.gpu.requestAdapter({

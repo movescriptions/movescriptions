@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import cpuWorkerUrl from './cpu-worker/index.ts?worker&url';
 import gpuWorkerUrl from './gpu-worker/index.ts?worker&url';
 
-import { Status, IMinerTask, IWorkerTask, IWorkerStatus, MAX_SEQUENCE } from './types'
+import { Status, IMinerTask, IMintProgress, IWorkerTask, IWorkerStatus, MAX_SEQUENCE } from './types'
 
 export class MinerManager {
   status: Status;
@@ -120,8 +120,10 @@ export class MinerManager {
       this.currentTask = task;
       let currentSeqStart = 0;
     
+      const sequencePerWorker = Math.floor(MAX_SEQUENCE / (this.cpuWorkerCount + this.gpuWorkerCount * 10 + 3));
+
       if (this.cpuWorkerCount > 0) {
-        const cpuSequencePerWorker = Math.floor(MAX_SEQUENCE / (this.cpuWorkerCount * 2));
+        currentSeqStart += sequencePerWorker * 3;
 
         for (let i = 0; i < this.cpuWorkerCount; i++) {
           const workerTask: IWorkerTask = {
@@ -129,7 +131,7 @@ export class MinerManager {
             powData: task.powData,
             difficulty: task.difficulty,
             seqStart: currentSeqStart,
-            seqEnd: currentSeqStart + cpuSequencePerWorker,
+            seqEnd: currentSeqStart + sequencePerWorker,
             timestamp: task.timestamp,
           };
     
@@ -141,20 +143,18 @@ export class MinerManager {
             payload: workerTask
           });
   
-          currentSeqStart += cpuSequencePerWorker;
+          currentSeqStart += sequencePerWorker;
         }
       }
       
       if (this.gpuWorkerCount > 0) {
         for (let i = 0; i < this.gpuWorkerCount; i++) {
-          const gpuSequencePerWorker = Math.floor(MAX_SEQUENCE / this.gpuWorkerCount);
-
           const workerTask: IWorkerTask = {
             id: uuidv4(),
             powData: task.powData,
             difficulty: task.difficulty,
             seqStart: currentSeqStart,
-            seqEnd: currentSeqStart + gpuSequencePerWorker,
+            seqEnd: currentSeqStart + sequencePerWorker * 10,
             timestamp: task.timestamp,
           };
     
@@ -166,7 +166,7 @@ export class MinerManager {
             payload: workerTask
           });
 
-          currentSeqStart += gpuSequencePerWorker;
+          currentSeqStart += sequencePerWorker;
         }
       }
     }
@@ -179,7 +179,7 @@ export class MinerManager {
 
       switch (type) {
         case "progress":
-          workerStatus.hashRate = payload.hashRate;
+          workerStatus.progress = payload;
           break
         case "end":
           workerStatus.nonce = payload.nonce;
@@ -197,6 +197,10 @@ export class MinerManager {
 
   private collectTaskResult(task: IMinerTask) {
     let totalHashRate = 0;
+    let lastHash: string | undefined = "";
+    let lastNonce: number | undefined = 0;
+
+    let details = new Array<IMintProgress>();
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const [_id, status] of this.workerStatus) {
@@ -214,19 +218,21 @@ export class MinerManager {
         break
       }
 
-      totalHashRate = totalHashRate + status.hashRate
+      if (status.progress) {
+        details.push(status.progress)
+  
+        lastHash = status.hash;
+        lastNonce = status.nonce;
+        totalHashRate = totalHashRate + status.progress.hashRate
+      }
     }
 
-    task.onProgress(`search nonce..., hashRate: ${humanReadableHashrate(totalHashRate)}`);
+    task.onProgress({
+      name: "miner",
+      hash: lastHash,
+      nonce: lastNonce,
+      hashRate: totalHashRate,
+      details: details,
+    });
   }
-}
-
-function humanReadableHashrate(hashrate: number): string {
-  const units: string[] = ['H/s', 'KH/s', 'MH/s', 'GH/s', 'TH/s', 'PH/s', 'EH/s', 'ZH/s', 'YH/s'];
-  let i: number = 0;
-  while(hashrate >= 1000) {
-      hashrate /= 1000;
-      ++i;
-  }
-  return hashrate.toFixed(1) + ' ' + units[i];
 }

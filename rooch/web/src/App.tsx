@@ -8,7 +8,8 @@ import {
 } from '@roochnetwork/rooch-sdk'
 
 import { arrayify } from "@ethersproject/bytes"
-import { MinerManager, IMinerTask, IMintResult } from './miner'
+import { MinerManager, IMinerTask, IMintResult, IMintProgress } from './miner'
+import { humanReadableHashrate } from './utils/hashRate'
 
 const moveScriptionAddress = `${import.meta.env.VITE_MOVE_SCRIPTIONS_ADDRESS}`
 const mrc20PowInputFunc = `${moveScriptionAddress}::movescription::pow_input`
@@ -26,9 +27,10 @@ let minerManager = new MinerManager(4, 0);
 
 function App() {
   const [minting, setMinting] = useState(false);
-  const [progress, setProgress] = useState("");
+  const [progress, setProgress] = useState<IMintProgress|undefined>(undefined);
   const [mintResult, setMintResult] = useState<IMintResult|undefined>(undefined);
   const [errorMsg, setErrorMsg] = useState<string|undefined>(undefined);
+  const [tx, setTX] = useState<string|undefined>(undefined);
 
   const getPowInput = async (account: IAccount, tick: string, value: number) => {
     const resp = await client.executeViewFunction(
@@ -100,7 +102,7 @@ function App() {
     const powInput = await getPowInput(account, tick, value)
 
     if (powInput) {
-      minerManager = new MinerManager(0, 1);
+      minerManager = new MinerManager(6, 1);
 
       return new Promise((resolve, reject) => {
         const task: IMinerTask = {
@@ -116,7 +118,7 @@ function App() {
             minerManager.stop()
             reject(err)
           },
-          onProgress: (progress: string)=>{
+          onProgress: (progress: IMintProgress)=>{
             setProgress(progress)
           }
         }
@@ -173,7 +175,8 @@ function App() {
       })
 
       console.log('mint tx:', tx)
-      setProgress("mint ok!")
+      setProgress(undefined)
+      setTX(tx)
     } catch (e: unknown) {
       console.log(e)
     } finally {
@@ -183,6 +186,8 @@ function App() {
 
   const handleStop = async () => {
     setMinting(false)
+    setTX(undefined)
+    setProgress(undefined)
     minerManager.stop();
     console.log("stop mint success!");
   }
@@ -192,16 +197,16 @@ function App() {
       <div className="card">
         {!minting && (
           <div>
-            <div>
-              {progress}
-            </div>
-
             {mintResult && (
               <div>Found nonce: {mintResult.nonce}, hash: {mintResult.hash}</div>
             )}
 
             {errorMsg && (
               <div style={{color: 'red'}}>Error: {errorMsg}</div>
+            )}
+
+            {tx && (
+              <div>Mint ok, tx: {tx}</div>
             )}
 
             <button onClick={() => handleMint(account)}>
@@ -216,7 +221,13 @@ function App() {
               Minting...
             </div>
             <div>
-              {progress}
+              {progress && progress.details && progress.details.map((item, index)=>(
+                <div key={"item_" + index} style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <div style={{width: '33%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>Hash: {item.hash}</div>
+                  <div style={{width: '33%'}}>Nonce: {item.nonce}</div>
+                  <div style={{width: '33%'}}>{humanReadableHashrate(item.hashRate)}</div>
+                </div>
+              ))}
             </div>
             <button onClick={() => handleStop()}>
               Stop

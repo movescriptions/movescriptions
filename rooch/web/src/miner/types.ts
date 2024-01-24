@@ -13,6 +13,14 @@ export interface IMintResult {
   hash: string;
 }
 
+export interface IMintProgress {
+  name: string;
+  hash?: string;
+  nonce?: number;
+  hashRate: number;
+  details?: Array<IMintProgress>
+}
+
 export interface IMinerTask {
   id: string;
   powData: Uint8Array;
@@ -20,7 +28,7 @@ export interface IMinerTask {
   timestamp: number;
   onEnd: (result: IMintResult)=>void;
   onError: (err: Error)=>void;
-  onProgress: (msg: string)=>void;
+  onProgress: (msg: IMintProgress)=>void;
 }
 
 export interface IWorkerTask {
@@ -33,7 +41,7 @@ export interface IWorkerTask {
 }
 
 export interface IWorkerStatus {
-  hashRate: number;
+  progress?: IMintProgress;
   error: Error | undefined;
   nonce: number | undefined;
   hash: string | undefined;
