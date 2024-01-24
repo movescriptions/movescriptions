@@ -8,12 +8,14 @@ module smartinscription::tick_name{
     const MAX_TICK_LENGTH: u64 = 32;
     const MIN_TICK_LENGTH: u64 = 4;
 
-    const RESERVED_TICK_TICK: vector<u8> = b"TICK";
-    const RESERVED_TICK_NAME: vector<u8> = b"NAME";
+    const PROTOCOL_TICK: vector<u8> = b"MOVE";
+    const PROTOCOL_TICK_NAME_TICK: vector<u8> = b"TICK";
+    const PROTOCOL_NAME_SERVICE_TICK: vector<u8> = b"NAME";
+
 
     public fun is_tick_name_reserved(tick_name: vector<u8>) : bool {
         string_util::to_uppercase(&mut tick_name);
-        tick_name == RESERVED_TICK_TICK || tick_name == RESERVED_TICK_NAME
+        tick_name == PROTOCOL_TICK || tick_name == PROTOCOL_TICK_NAME_TICK || tick_name == PROTOCOL_NAME_SERVICE_TICK
     }
 
     /// Check if the tick name is valid
@@ -33,6 +35,32 @@ module smartinscription::tick_name{
         ascii::all_characters_printable(&tick_name)
     }
 
+    // ==== Constants functions ====
+
+    public fun max_tick_length() : u64 {
+        MAX_TICK_LENGTH
+    }
+
+    public fun min_tick_length() : u64 {
+        MIN_TICK_LENGTH
+    }
+
+    public fun disallowed_tick_chars() : vector<u8> {
+        DISALLOWED_TICK_CHARS
+    }
+
+    public fun protocol_tick() : vector<u8> {
+        PROTOCOL_TICK
+    }
+
+    public fun protocol_tick_name_tick() : vector<u8> {
+        PROTOCOL_TICK_NAME_TICK
+    }
+
+    public fun protocol_name_service_tick() : vector<u8> {
+        PROTOCOL_NAME_SERVICE_TICK
+    }
+    
     #[test]
     fun test_is_tick_name_valid() {
         assert!(!is_tick_name_valid(b"abc"), 1);
