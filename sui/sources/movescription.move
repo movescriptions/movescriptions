@@ -13,9 +13,12 @@ module smartinscription::movescription {
     use sui::clock::{Self, Clock};
     use sui::package;
     use sui::display;
+    use sui::dynamic_field as df;
     use smartinscription::string_util::{to_uppercase};
     use smartinscription::svg;
+    use smartinscription::type_util;
 
+    friend smartinscription::tick_factory;
 
     // ======== Constants =========
     const VERSION: u64 = 3;
@@ -30,6 +33,7 @@ module smartinscription::movescription {
     const BASE_EPOCH_COUNT_FEE: u64 = 100;
     const PROTOCOL_TICK: vector<u8> = b"MOVE";
     const PROTOCOL_START_TIME_MS: u64 = 1704038400*1000;
+    const TICK_NAME_TICK: vector<u8> = b"TICK";
 
     // ======== Errors =========
     const ErrorTickLengthInvaid: u64 = 1;
@@ -52,6 +56,8 @@ module smartinscription::movescription {
     const EInvalidFeeTick: u64 = 21;
     const ENotEnoughDeployFee: u64 = 22;
     const ETemporarilyDisabled: u64 = 23;
+    const ErrorNotWitness: u64 = 24;
+    const ErrorUnexpectedTick: u64 = 25;
 
     // ======== Types =========
     struct Movescription has key, store {
@@ -87,6 +93,7 @@ module smartinscription::movescription {
     struct DeployRecord has key {
         id: UID,
         version: u64,
+        /// The Tick name -> TickRecord object id
         record: Table<String, address>,
     }
 
@@ -112,6 +119,27 @@ module smartinscription::movescription {
         total_transactions: u64,
     }
 
+    struct TickStat has store{
+        /// The remaining inscription amount not minted
+        remain: u64,
+        /// The current supply of the inscription, burn will decrease the current supply
+        current_supply: u64,
+        /// Total mint transactions
+        total_transactions: u64, 
+    }
+
+    struct TickRecordV2 has key, store {
+        id: UID,
+        version: u64,
+        tick: String,
+        total_supply: u64,
+        /// The initial locked Asset in the inscription
+        init_locked_asset: u64,
+        // The mint factory type name
+        mint_factory: String,
+        stat: TickStat,
+    }
+
     struct BurnReceipt has key, store {
         id: UID,
         tick: String,
@@ -127,6 +155,14 @@ module smartinscription::movescription {
         start_time_ms: u64,
         epoch_count: u64,
         mint_fee: u64,
+    }
+
+    struct DeployTickV2 has copy, drop {
+        id: ID,
+        deployer: address,
+        tick: String,
+        total_supply: u64,
+        init_locked_asset: u64,
     }
 
     struct MintTick has copy, drop {
@@ -470,6 +506,106 @@ module smartinscription::movescription {
         };
     }
 
+    #[lint_allow(self_transfer)]
+    public fun do_deploy_with_witness<W: drop>(
+        deploy_record: &mut DeployRecord, 
+        tick_name_ms: Movescription,
+        total_supply: u64,
+        init_locked_asset: u64,
+        _witness: W,
+        ctx: &mut TxContext
+    ) : TickRecordV2 {
+        assert!(check_tick(&tick_name_ms, TICK_NAME_TICK), ErrorUnexpectedTick);
+        let Movescription { id, amount: _, tick: _, attach_coin:_, acc, metadata } = tick_name_ms;
+        object::delete(id);
+        //TODO charge deploy fee
+        let acc_coin = coin::from_balance<SUI>(acc, ctx);
+        transfer::public_transfer(acc_coin, tx_context::sender(ctx));
+        let metadata = option::destroy_some(metadata);
+        let tick = ascii::string(metadata.content);
+        internal_deploy_with_witness(deploy_record, tick, total_supply, init_locked_asset, _witness, ctx)
+    }
+
+    public(friend) fun internal_deploy_with_witness<W: drop>(
+        deploy_record: &mut DeployRecord, 
+        tick: String,
+        total_supply: u64,
+        init_locked_asset: u64,
+        _witness: W,
+        ctx: &mut TxContext
+    ) : TickRecordV2 {
+        //to_uppercase(&mut tick);
+        //let tick_str: String = string(tick);
+        //let tick_len: u64 = ascii::length(&tick_str);
+        //assert!(MIN_TICK_LENGTH <= tick_len && tick_len <= MAX_TICK_LENGTH, ErrorTickLengthInvaid);
+        assert!(!table::contains(&deploy_record.record, tick), ErrorTickAlreadyExists);
+        assert!(total_supply > 0, ENotEnoughSupply);
+        assert!(type_util::is_witness<W>(), ErrorNotWitness);
+
+        let mint_factory = type_util::module_id<W>();
+        let tick_uid = object::new(ctx);
+        let tick_id = object::uid_to_inner(&tick_uid);
+        let tick_record: TickRecordV2 = TickRecordV2 {
+            id: tick_uid,
+            version: VERSION,
+            tick: tick,
+            total_supply,
+            init_locked_asset,
+            mint_factory,
+            stat: TickStat {
+                remain: total_supply,
+                current_supply: 0,
+                total_transactions: 0,
+            },
+        };
+        let tk_record_address: address = object::id_address(&tick_record);
+        table::add(&mut deploy_record.record, tick, tk_record_address);
+        emit(DeployTickV2 {
+            id: tick_id,
+            deployer: tx_context::sender(ctx),
+            tick: tick,
+            total_supply,
+            init_locked_asset,
+        });
+        tick_record
+    }
+
+    #[lint_allow(self_transfer)]
+    public fun do_mint_with_witness<W: drop>(
+        tick_record: &mut TickRecordV2,
+        init_locked_coin: Coin<SUI>,
+        amount: u64,
+        metadata: Option<Metadata>,
+        _witness: W,
+        ctx: &mut TxContext
+    ) : Movescription {
+        assert!(tick_record.version <= VERSION, EVersionMismatched);
+        assert!(tick_record.stat.remain > amount, ENotEnoughToMint);
+        assert!(type_util::is_witness<W>(), ErrorNotWitness);
+        type_util::assert_witness<W>(tick_record.mint_factory);
+
+        tick_record.stat.remain = tick_record.stat.remain - amount;
+        tick_record.stat.current_supply = tick_record.stat.current_supply + amount;
+        tick_record.stat.total_transactions = tick_record.stat.total_transactions + 1;
+
+        let sender: address = tx_context::sender(ctx);
+        let tick: String = tick_record.tick;
+
+        let acc_coin = if(coin::value<SUI>(&init_locked_coin) == tick_record.init_locked_asset){
+            init_locked_coin
+        }else{
+            let acc_coin = coin::split<SUI>(&mut init_locked_coin, tick_record.init_locked_asset, ctx);
+            transfer::public_transfer(init_locked_coin, sender);
+            acc_coin
+        };
+        let init_acc_balance: Balance<SUI> = coin::into_balance<SUI>(acc_coin);
+        new_movescription(amount, tick, init_acc_balance, metadata, ctx)
+    }
+
+    public fun is_mergeable(inscription1: &Movescription, inscription2: &Movescription): bool {
+        inscription1.tick == inscription2.tick && inscription1.metadata == inscription2.metadata
+    }
+
     public fun do_merge(
         inscription1: &mut Movescription,
         inscription2: Movescription,
@@ -576,6 +712,10 @@ module smartinscription::movescription {
         transfer::public_transfer(acc, tx_context::sender(ctx));
         transfer::public_transfer(receipt, tx_context::sender(ctx));
     }
+    
+    public fun is_splitable(inscription: &Movescription): bool {
+        inscription.amount > 1 && inscription.attach_coin == 0
+    }
 
     public fun do_split(
         inscription: &mut Movescription,
@@ -637,6 +777,12 @@ module smartinscription::movescription {
         inscription.tick == tick_str
     }
 
+    public fun check_tick_record(tick_record: &TickRecordV2, tick: vector<u8>): bool {
+        to_uppercase(&mut tick);
+        let tick_str: String = string(tick);
+        tick_record.tick == tick_str
+    }
+
     // ===== Migrate functions =====
 
     public fun migrate_deploy_record(deploy_record: &mut DeployRecord) {
@@ -664,6 +810,18 @@ module smartinscription::movescription {
    
     public fun acc(inscription: &Movescription): u64 {
         balance::value(&inscription.acc)
+    }
+
+    public fun metadata(inscription: &Movescription): Option<Metadata> {
+        inscription.metadata
+    }
+
+    // ======== DeployRecord Read Functions =========
+
+    public fun is_deployed(deploy_record: &DeployRecord, tick: vector<u8>): bool {
+        to_uppercase(&mut tick);
+        let tick_str: String = string(tick);
+        table::contains(&deploy_record.record, tick_str)
     }
 
     // ======== TickRecord Read Functions =========
@@ -697,6 +855,80 @@ module smartinscription::movescription {
 
     public fun tick_record_total_transactions(tick_record: &TickRecord): u64 {
         tick_record.total_transactions
+    }
+
+    // ======= TickRecordV2 Read Functions ========
+
+    public fun tick_record_v2_total_supply(tick_record: &TickRecordV2): u64 {
+        tick_record.total_supply
+    }
+
+    public fun tick_record_v2_init_locked_asset(tick_record: &TickRecordV2): u64 {
+        tick_record.init_locked_asset
+    }
+
+    public fun tick_record_v2_mint_factory(tick_record: &TickRecordV2): String {
+        tick_record.mint_factory
+    }
+
+    public fun tick_record_v2_remain(tick_record: &TickRecordV2): u64 {
+        tick_record.stat.remain
+    }
+
+    public fun tick_record_v2_current_supply(tick_record: &TickRecordV2): u64 {
+        tick_record.stat.current_supply
+    }   
+
+    public fun tick_record_v2_total_transactions(tick_record: &TickRecordV2): u64 {
+        tick_record.stat.total_transactions
+    }
+
+    // ======== TickRecordV2 df functions =========
+
+    public fun tick_record_add_df<V: store, W: drop>(tick_record: &mut TickRecordV2, value: V, _witness: W) {
+        type_util::assert_witness<W>(tick_record.mint_factory);
+        let name = type_util::type_to_name<V>();
+        df::add(&mut tick_record.id, name, value);
+    }
+
+    public fun tick_record_remove_df<V: store, W: drop>(tick_record: &mut TickRecordV2, _witness: W) : V {
+        type_util::assert_witness<W>(tick_record.mint_factory);
+        let name = type_util::type_to_name<V>();
+        df::remove(&mut tick_record.id, name)
+    }
+
+    public fun tick_record_borrow_mut_df<V: store, W: drop>(tick_record: &mut TickRecordV2, _witness: W) : &mut V {
+        type_util::assert_witness<W>(tick_record.mint_factory);
+        let name = type_util::type_to_name<V>();
+        df::borrow_mut(&mut tick_record.id, name)
+    }
+
+    public fun tick_record_borrow_df<V: store>(tick_record: &TickRecordV2) : &V{
+        let name = type_util::type_to_name<V>();
+        df::borrow(&tick_record.id, name) 
+    }
+
+    /// Returns 
+    public fun tick_record_exists_df<V: store>(tick_record: &TickRecordV2) : bool {
+        let name = type_util::type_to_name<V>();
+        df::exists_with_type<String, V>(&tick_record.id, name) 
+    }
+
+    // ======== Metadata Functions =========
+
+    public fun new_metadata(content_type: std::string::String, content: vector<u8>) : Metadata {
+        Metadata {
+            content_type,
+            content,
+        }
+    }
+    
+    public fun metadata_content_type(metadata: &Metadata): std::string::String {
+        metadata.content_type
+    }
+
+    public fun metadata_content(metadata: &Metadata): vector<u8> {
+        metadata.content
     }
 
     // ======== Constants functions =========
