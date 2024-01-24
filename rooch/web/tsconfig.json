@@ -19,7 +19,9 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+
+    "types": ["@webgpu/types"]
   },
   "include": [
     "typings/*",

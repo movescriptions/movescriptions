@@ -1,7 +1,7 @@
 import { shader } from './nonce-search.wgsl';
 import { u32 } from './types';
 
-const debug = false;
+const debug = true;
 
 async function getGPUDevice(): Promise<GPUDevice> {
   const adapter = await navigator.gpu.requestAdapter({
@@ -13,10 +13,6 @@ async function getGPUDevice(): Promise<GPUDevice> {
   } else {
     return await adapter.requestDevice();
   }
-}
-
-function calcNumWorkgroups(device: GPUDevice): number {
-  return device.limits.maxComputeWorkgroupsPerDimension;
 }
 
 function padMessage(bytes: Uint8Array, size: number): Uint32Array {
@@ -81,12 +77,13 @@ export async function nonce_search(key: Uint8Array, difficulty: number) {
 
   gpu = await gpu_init();
 
-  const numWorkgroups = calcNumWorkgroups(gpu.device);
+  const numWorkgroups = gpu.device.limits.maxComputeWorkgroupsPerDimension;
+  const invocationsPerWorkgroup = gpu.device.limits.maxComputeInvocationsPerWorkgroup;
 
   if (debug) {
     console.log("gpu limit:", gpu.device.limits)
-    console.log("gpu limit maxComputeWorkgroupsPerDimension:", gpu.device.limits.maxComputeWorkgroupsPerDimension)
-    console.log("numWorkgroups:", numWorkgroups)
+    console.log("gpu limit maxComputeInvocationsPerWorkgroup:", invocationsPerWorkgroup)
+    console.log("gpu limit maxComputeWorkgroupsPerDimension:", numWorkgroups)
   }
 
   // key
@@ -251,6 +248,6 @@ export async function nonce_search(key: Uint8Array, difficulty: number) {
 
   return {
     result: result,
-    calcCount: numWorkgroups * 256,
+    calcCount: numWorkgroups * invocationsPerWorkgroup,
   };
 }
