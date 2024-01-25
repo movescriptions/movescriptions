@@ -1,6 +1,7 @@
 #[test_only]
 module smartinscription::epoch_bus_factory_scenario_test {
     use std::ascii;
+    use std::option;
     use sui::clock;
     use sui::sui::SUI;
     use sui::coin;
@@ -103,7 +104,8 @@ module smartinscription::epoch_bus_factory_scenario_test {
             let amount = movescription::amount(&first_inscription);
             let acc = movescription::acc(&first_inscription);
             let tick = movescription::tick(&first_inscription);
-            let (coin, receipt) = movescription::do_burn_for_receipt_v2(&mut test_tick_record, first_inscription, b"love and peace", test_scenario::ctx(scenario));
+            let (coin, locked_movescription, receipt) = movescription::do_burn_for_receipt_v2(&mut test_tick_record, first_inscription, b"love and peace", test_scenario::ctx(scenario));
+            option::destroy_none(locked_movescription);
             assert!(coin::value(&coin) == acc, 1);
             transfer::public_transfer(coin, admin);
             let (burn_tick, burn_amount) = movescription::drop_receipt(receipt);
