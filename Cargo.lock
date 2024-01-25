@@ -1246,7 +1246,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "movescription"
+name = "movescriptions"
 version = "0.1.0"
 dependencies = [
  "clap",
