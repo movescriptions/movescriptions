@@ -19,8 +19,10 @@ module smartinscription::movescription {
     use smartinscription::type_util;
     use smartinscription::tick_name;
 
+    friend smartinscription::name_server_factory;
     friend smartinscription::tick_factory;
     friend smartinscription::epoch_bus_factory;
+
 
     // ======== Constants =========
     const VERSION: u64 = 3;
@@ -306,7 +308,8 @@ module smartinscription::movescription {
         _witness: W,
         ctx: &mut TxContext
     ) : TickRecordV2 {
-        assert_protocol_tick_name_tick(&tick_name);
+        // assert_protocol_tick_name_tick(&tick_name);
+        assert_protocol_tick_name(&tick_name);
         let Movescription { id, amount: _, tick: _, attach_coin:_, acc, metadata } = tick_name;
         object::delete(id);
         //TODO charge deploy fee
@@ -624,6 +627,13 @@ module smartinscription::movescription {
     /// Assert the tick of Movescription is protocol tick name service tick `NAME`
     public fun assert_protocol_name_service_tick(ms: &Movescription) {
         assert!(ascii::into_bytes(ms.tick) == tick_name::protocol_name_service_tick(), ErrorUnexpectedTick);
+    }
+
+    
+    /// Assert the tick of Movescription is protocol tick name tick `TICK` or `NAME`
+    public fun assert_protocol_tick_name(ms: &Movescription){
+        let ascii_tick_name = ascii::into_bytes(ms.tick);
+        assert!( ascii_tick_name == tick_name::protocol_tick_name_tick() || ascii_tick_name == tick_name::protocol_name_service_tick(), ErrorUnexpectedTick);
     }
 
     public fun assert_tick(ms: &Movescription, tick: vector<u8>) {
