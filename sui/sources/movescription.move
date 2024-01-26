@@ -16,7 +16,7 @@ module smartinscription::movescription {
     use sui::dynamic_field as df;
     use smartinscription::string_util::{to_uppercase};
     use smartinscription::svg;
-    use smartinscription::type_util;
+    use smartinscription::type_util::{Self, type_to_name};
     use smartinscription::tick_name;
 
     friend smartinscription::name_server_factory;
@@ -80,12 +80,15 @@ module smartinscription::movescription {
         metadata: Option<Metadata>,
     }
 
-    #[allow(unused_field)]
     struct Metadata has store, copy, drop {
         /// The metadata content type, eg: image/png, image/jpeg, it is optional
         content_type: std::string::String,  
         /// The metadata content
         content: vector<u8>,
+    }
+
+    struct LockedBox has store{
+        locked_movescription: Movescription,
     }
 
     struct InscriptionBalance<phantom T> has copy, drop, store { }
@@ -124,7 +127,7 @@ module smartinscription::movescription {
         total_transactions: u64,
     }
 
-    struct TickStat has store{
+    struct TickStat has store, copy, drop {
         /// The remaining inscription amount not minted
         remain: u64,
         /// The current supply of the inscription, burn will decrease the current supply
@@ -385,6 +388,8 @@ module smartinscription::movescription {
         new_movescription(amount, tick, init_locked_asset, metadata, ctx)
     }
 
+    // ======= Merge functions ========
+
     public fun is_mergeable(inscription1: &Movescription, inscription2: &Movescription): bool {
         inscription1.tick == inscription2.tick && inscription1.metadata == inscription2.metadata
     }
@@ -396,7 +401,10 @@ module smartinscription::movescription {
         assert!(inscription1.tick == inscription2.tick, ENotSameTick);
         assert!(inscription2.attach_coin == 0, EAttachDFExists);
         assert!(inscription1.metadata == inscription2.metadata, ENotSameMetadata);
-
+        if (contains_locked(&inscription2)) {
+            let locked_movescription = unlock_box(&mut inscription2);
+            lock_within(inscription1, locked_movescription);
+        };
         let Movescription { id, amount, tick: _, attach_coin:_, acc, metadata:_ } = inscription2;
         inscription1.amount = inscription1.amount + amount;
         balance::join<SUI>(&mut inscription1.acc, acc);
@@ -410,40 +418,59 @@ module smartinscription::movescription {
         do_merge(inscription1, inscription2);
     }
 
+    // ========= Burn functions =========
+
     /// Burn inscription and return the acc SUI, without message and BurnRecipt
     public fun do_burn(
-        tick_record: &mut TickRecord,
-        inscription: Movescription,
-        ctx: &mut TxContext
+        _tick_record: &mut TickRecord,
+        _inscription: Movescription,
+        _ctx: &mut TxContext
     ) : Coin<SUI> {
-        do_burn_with_message(tick_record, inscription, vector::empty(), ctx)
+        abort EDeprecatedFunction
     }
 
     /// Burn Movescription without BurnRecipt
     public fun do_burn_with_message(
-        tick_record: &mut TickRecord,
-        inscription: Movescription,
-        message: vector<u8>,
-        ctx: &mut TxContext
+        _tick_record: &mut TickRecord,
+        _inscription: Movescription,
+        _message: vector<u8>,
+        _ctx: &mut TxContext
     ) : Coin<SUI> {
-        assert!(tick_record.version <= VERSION, EVersionMismatched);
-        assert!(tick_record.tick == inscription.tick, ENotSameTick);
-        assert!(inscription.attach_coin == 0, EAttachDFExists);
-        let Movescription { id, amount: amount, tick: tick, attach_coin:_, acc, metadata:_ } = inscription;
-        tick_record.current_supply = tick_record.current_supply - amount;
-        let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
-        object::delete(id);
+        abort EDeprecatedFunction
+    }
 
-        emit({
-            BurnTick {
-                sender: tx_context::sender(ctx),
-                tick: tick,
-                amount: amount,                
-                message: std::string::utf8(message),
-            }
-        });
+    public fun do_burn_for_receipt(
+        _tick_record: &mut TickRecord,
+        _inscription: Movescription,        
+        _message: vector<u8>,
+        _ctx: &mut TxContext
+    ) : (Coin<SUI>, BurnReceipt) {
+        abort EDeprecatedFunction
+    }
 
-        acc
+    public entry fun burn(
+        _tick_record: &mut TickRecord,
+        _inscription: Movescription,
+        _ctx: &mut TxContext
+    ) {
+        abort EDeprecatedFunction
+    }
+
+    public entry fun burn_for_receipt(
+        _tick_record: &mut TickRecord,
+        _inscription: Movescription,        
+        _message: vector<u8>,
+        _ctx: &mut TxContext
+    ) {
+        abort EDeprecatedFunction
+    }
+
+    public fun do_burn_v2(
+        tick_record: &mut TickRecordV2,
+        inscription: Movescription,
+        ctx: &mut TxContext
+    ) : (Coin<SUI>, Option<Movescription>) {
+        do_burn_with_message_v2(tick_record, inscription, vector::empty(), ctx)
     }
 
     /// Burn Movescription without BurnRecipt
@@ -452,10 +479,15 @@ module smartinscription::movescription {
         inscription: Movescription,
         message: vector<u8>,
         ctx: &mut TxContext
-    ) : Coin<SUI> {
+    ) : (Coin<SUI>, Option<Movescription>) {
         assert!(tick_record.version <= VERSION, EVersionMismatched);
         assert!(tick_record.tick == inscription.tick, ENotSameTick);
         assert!(inscription.attach_coin == 0, EAttachDFExists);
+        let locked_movescription = if(contains_locked(&inscription)){
+            option::some(unlock_box(&mut inscription))
+        }else{
+            option::none()
+        };
         let Movescription { id, amount: amount, tick: tick, attach_coin:_, acc, metadata:_ } = inscription;
         tick_record.stat.current_supply = tick_record.stat.current_supply - amount;
         let acc: Coin<SUI> = coin::from_balance<SUI>(acc, ctx);
@@ -470,26 +502,7 @@ module smartinscription::movescription {
             }
         });
 
-        acc
-    }
-
-    public fun do_burn_for_receipt(
-        tick_record: &mut TickRecord,
-        inscription: Movescription,        
-        message: vector<u8>,
-        ctx: &mut TxContext
-    ) : (Coin<SUI>, BurnReceipt) {
-        let tick = inscription.tick;
-        let amount = inscription.amount;
-        let acc = do_burn_with_message(tick_record, inscription, message, ctx);
-
-        let receipt = BurnReceipt {
-            id: object::new(ctx),
-            tick: tick,
-            amount: amount,
-        };
-        
-        (acc, receipt)
+        (acc,locked_movescription)
     }
 
     public fun do_burn_for_receipt_v2(
@@ -497,10 +510,10 @@ module smartinscription::movescription {
         inscription: Movescription,        
         message: vector<u8>,
         ctx: &mut TxContext
-    ) : (Coin<SUI>, BurnReceipt) {
+    ) : (Coin<SUI>, Option<Movescription>, BurnReceipt) {
         let tick = inscription.tick;
         let amount = inscription.amount;
-        let acc = do_burn_with_message_v2(tick_record, inscription, message, ctx);
+        let (acc, locked_movescription) = do_burn_with_message_v2(tick_record, inscription, message, ctx);
 
         let receipt = BurnReceipt {
             id: object::new(ctx),
@@ -508,41 +521,10 @@ module smartinscription::movescription {
             amount: amount,
         };
         
-        (acc, receipt)
-    }
-
-    /// Drop the BurnReceipt, allow developer to drop the receipt after the receipt is used
-    public fun drop_receipt(receipt: BurnReceipt):(String, u64) {
-        let BurnReceipt { id, tick: tick, amount: amount } = receipt;
-        object::delete(id);
-        (tick, amount)
+        (acc, locked_movescription, receipt)
     }
 
     #[lint_allow(self_transfer)]
-    /// Burn inscription and return the acc SUI to the sender
-    public entry fun burn(
-        tick_record: &mut TickRecord,
-        inscription: Movescription,
-        ctx: &mut TxContext
-    ) {
-        let acc = do_burn_with_message(tick_record, inscription, vector::empty(), ctx);
-        transfer::public_transfer(acc, tx_context::sender(ctx));
-    }
-
-    #[lint_allow(self_transfer)]
-    /// Burn inscription and return the acc SUI to the sender, and got a BurnReceipt Movescription
-    public entry fun burn_for_receipt(
-        tick_record: &mut TickRecord,
-        inscription: Movescription,        
-        message: vector<u8>,
-        ctx: &mut TxContext
-    ) {
-        let (acc, receipt) = do_burn_for_receipt(tick_record, inscription, message, ctx);
-        transfer::public_transfer(acc, tx_context::sender(ctx));
-        transfer::public_transfer(receipt, tx_context::sender(ctx));
-    }
-
-      #[lint_allow(self_transfer)]
     /// Burn inscription and return the acc SUI to the sender, and got a BurnReceipt Movescription
     public entry fun burn_for_receipt_v2(
         tick_record: &mut TickRecordV2,
@@ -550,15 +532,48 @@ module smartinscription::movescription {
         message: vector<u8>,
         ctx: &mut TxContext
     ) {
-        let (acc, receipt) = do_burn_for_receipt_v2(tick_record, inscription, message, ctx);
+        let (acc, locked_movescription, receipt) = do_burn_for_receipt_v2(tick_record, inscription, message, ctx);
+        if(option::is_some(&locked_movescription)){
+            let locked_movescription = option::destroy_some(locked_movescription);
+            transfer::public_transfer(locked_movescription, tx_context::sender(ctx));
+        }else{
+            option::destroy_none(locked_movescription);
+        };
         transfer::public_transfer(acc, tx_context::sender(ctx));
         transfer::public_transfer(receipt, tx_context::sender(ctx));
     }
+
+    #[lint_allow(self_transfer)]
+    public entry fun burn_v2(
+        tick_record: &mut TickRecordV2,
+        inscription: Movescription,
+        ctx: &mut TxContext
+    ) {
+        let (acc, locked_movescription) = do_burn_v2(tick_record, inscription, ctx);
+        if(option::is_some(&locked_movescription)){
+            let locked_movescription = option::destroy_some(locked_movescription);
+            transfer::public_transfer(locked_movescription, tx_context::sender(ctx));
+        }else{
+            option::destroy_none(locked_movescription);
+        };
+        transfer::public_transfer(acc, tx_context::sender(ctx));
+    }
+
+     /// Drop the BurnReceipt, allow developer to drop the receipt after the receipt is used
+    public fun drop_receipt(receipt: BurnReceipt):(String, u64) {
+        let BurnReceipt { id, tick: tick, amount: amount } = receipt;
+        object::delete(id);
+        (tick, amount)
+    }
+
+    // ======= Split functions ========
     
+    /// Check if the inscription can be split
     public fun is_splitable(inscription: &Movescription): bool {
         inscription.amount > 1 && inscription.attach_coin == 0
     }
 
+    /// Split the inscription and return the new inscription
     public fun do_split(
         inscription: &mut Movescription,
         amount: u64,
@@ -567,30 +582,37 @@ module smartinscription::movescription {
         assert!(0 < amount && amount < inscription.amount, EInvalidAmount);
         assert!(inscription.attach_coin == 0, EAttachDFExists);
         let acc_amount = balance::value(&inscription.acc);
+        let original_amount = inscription.amount;
         let new_ins_fee_balance = if (acc_amount == 0) {
             balance::zero<SUI>()
         } else {
-            let new_ins_acc_amount = split_acc(acc_amount, amount, inscription.amount);
-            if (new_ins_acc_amount == 0) {
-                new_ins_acc_amount = 1;
-            };
-            balance::split<SUI>(&mut inscription.acc, new_ins_acc_amount)
+            let new_acc_amount = split_amount(acc_amount, amount, original_amount);
+            balance::split<SUI>(&mut inscription.acc, new_acc_amount)
         };
-        inscription.amount = inscription.amount - amount;
-        new_movescription(
+        inscription.amount = original_amount - amount;
+
+        let split_movescription = new_movescription(
             amount, 
             inscription.tick,
             new_ins_fee_balance,
             inscription.metadata,
-            ctx)
+            ctx);
+
+        if(contains_locked(inscription)){
+            let locked_movescription = borrow_mut_locked(inscription);
+            let locked_split_amount = split_amount(locked_movescription.amount, amount, original_amount);
+            let new_locked_movescription = do_split(locked_movescription, locked_split_amount, ctx);
+            lock_within(&mut split_movescription, new_locked_movescription); 
+        };
+        split_movescription
     }
 
-    fun split_acc(acc_amount: u64, split_amount: u64, inscription_amount: u64): u64 {
-        let new_acc_amount = ((((acc_amount as u128) * (split_amount as u128)) / (inscription_amount as u128)) as u64);
-        if (new_acc_amount == 0) {
-            new_acc_amount = 1;
+    fun split_amount(target_amount: u64, split_amount: u64, inscription_amount: u64): u64 {
+        let new_split_amount = ((((target_amount as u128) * (split_amount as u128)) / (inscription_amount as u128)) as u64);
+        if (new_split_amount == 0) {
+            new_split_amount = 1;
         };
-        new_acc_amount
+        new_split_amount
     }
 
     #[lint_allow(self_transfer)]
@@ -610,6 +632,84 @@ module smartinscription::movescription {
 
     public entry fun inject_sui_entry(inscription: &mut Movescription, receive: Coin<SUI>) {
         inject_sui(inscription, receive);
+    }
+
+    // ===== Dynamic Field functions =====
+
+    /// Add the `Value` type dynamic field to the movescription
+    fun add_df<Value: store>(
+        movescription: &mut Movescription,
+        value: Value,
+    ) {
+        let name = type_to_name<Value>();
+        df::add(&mut movescription.id, name, value);
+    }
+
+    /// Borrow the `Value` type dynamic field of the movescription
+    fun borrow_df<Value: store>(
+        movescription: &Movescription,
+    ): &Value {
+        let name = type_to_name<Value>();
+        df::borrow<String, Value>(&movescription.id, name)
+    }
+
+    /// Borrow the `Value` type dynamic field of the movescription mutably
+    fun borrow_df_mut<Value: store>(
+        movescription: &mut Movescription,
+    ): &mut Value {
+        let name = type_to_name<Value>();
+        df::borrow_mut<String, Value>(&mut movescription.id, name)
+    }
+
+    /// Returns the `Value` type dynamic field of the movescription
+    fun remove_df<Value: store>(
+        movescription: &mut Movescription,
+    ): Value {
+        let name = type_to_name<Value>();
+        let value: Value = df::remove<String, Value>(&mut movescription.id, name);
+        value
+    }
+
+    /// Returns if the movescription contains the `Value` type dynamic field
+    fun exists_df<Value: store>(
+        movescription: &Movescription,
+    ): bool {
+        let name = type_to_name<Value>();
+        df::exists_with_type<String, Value>(&movescription.id, name)
+    }
+
+    // ===== Locked Box functions =====
+
+    /// Lock the locked_movescription in the movescription, and the locked_movescription can be unlocked when the movescription is burned
+    public fun lock_within(movescription: &mut Movescription, locked_movescription: Movescription) {
+        if (exists_df<LockedBox>(movescription)) {
+            let locked_box = borrow_df_mut<LockedBox>(movescription);
+            do_merge(&mut locked_box.locked_movescription, locked_movescription);
+        } else {
+            let locked_box = LockedBox {
+                locked_movescription
+            };
+            add_df(movescription, locked_box);
+        }
+    }
+
+    public fun contains_locked(movescription: &Movescription): bool {
+        exists_df<LockedBox>(movescription)
+    }
+
+    public fun borrow_locked(movescription: &Movescription): &Movescription {
+        let locked_box = borrow_df<LockedBox>(movescription);
+        &locked_box.locked_movescription
+    }
+
+    fun borrow_mut_locked(movescription: &mut Movescription): &mut Movescription {
+        let locked_box = borrow_df_mut<LockedBox>(movescription);
+        &mut locked_box.locked_movescription
+    }
+
+    fun unlock_box(movescription: &mut Movescription) : Movescription {
+        let LockedBox{ locked_movescription } = remove_df<LockedBox>(movescription);
+        locked_movescription
     }
 
     // ===== check tick util functions =====
@@ -780,7 +880,6 @@ module smartinscription::movescription {
         df::borrow(&tick_record.id, name) 
     }
 
-    /// Returns 
     public fun tick_record_exists_df<V: store>(tick_record: &TickRecordV2) : bool {
         let name = type_util::type_to_name<V>();
         df::exists_with_type<String, V>(&tick_record.id, name) 
@@ -881,4 +980,35 @@ module smartinscription::movescription {
         balance::destroy_for_testing(acc);
         object::delete(id);
     } 
+
+    #[test_only]
+    public fun new_tick_record_for_testing<W: drop>(
+        tick: String,
+        total_supply: u64,
+        current_supply: u64, 
+        _witness: W,
+        ctx: &mut TxContext
+    ) : TickRecordV2 {
+        let tick_uid = object::new(ctx);
+        let mint_factory = type_util::module_id<W>();
+        let tick_record: TickRecordV2 = TickRecordV2 {
+            id: tick_uid,
+            version: VERSION,
+            tick: tick,
+            total_supply,
+            mint_factory,
+            stat: TickStat {
+                remain: total_supply - current_supply,
+                current_supply,
+                total_transactions: 0,
+            },
+        };
+        tick_record
+    }
+
+    #[test_only]
+    public fun drop_tick_record_for_testing(tick_record: TickRecordV2) {
+        let TickRecordV2 { id, version: _, tick: _, total_supply: _, mint_factory: _, stat: _ } = tick_record;
+        object::delete(id);
+    }
 }
