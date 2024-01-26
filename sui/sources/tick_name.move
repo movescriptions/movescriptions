@@ -8,14 +8,14 @@ module smartinscription::tick_name{
     const MAX_TICK_LENGTH: u64 = 32;
     const MIN_TICK_LENGTH: u64 = 4;
 
-    const PROTOCOL_TICK: vector<u8> = b"MOVE";
-    const PROTOCOL_TICK_NAME_TICK: vector<u8> = b"TICK";
-    const PROTOCOL_NAME_SERVICE_TICK: vector<u8> = b"NAME";
+    const MOVE_TICK: vector<u8> = b"MOVE";
+    const TICK_TICK: vector<u8> = b"TICK";
+    const NAME_TICK: vector<u8> = b"NAME";
 
 
     public fun is_tick_name_reserved(tick_name: vector<u8>) : bool {
         string_util::to_uppercase(&mut tick_name);
-        tick_name == PROTOCOL_TICK || tick_name == PROTOCOL_TICK_NAME_TICK || tick_name == PROTOCOL_NAME_SERVICE_TICK
+        tick_name == MOVE_TICK || tick_name == TICK_TICK || tick_name == NAME_TICK
     }
 
     /// Check if the tick name is valid
@@ -49,16 +49,16 @@ module smartinscription::tick_name{
         DISALLOWED_TICK_CHARS
     }
 
-    public fun protocol_tick() : vector<u8> {
-        PROTOCOL_TICK
+    public fun move_tick() : vector<u8> {
+        MOVE_TICK
     }
 
-    public fun protocol_tick_name_tick() : vector<u8> {
-        PROTOCOL_TICK_NAME_TICK
+    public fun tick_tick() : vector<u8> {
+        TICK_TICK
     }
 
-    public fun protocol_name_service_tick() : vector<u8> {
-        PROTOCOL_NAME_SERVICE_TICK
+    public fun name_tick() : vector<u8> {
+        NAME_TICK
     }
     
     #[test]

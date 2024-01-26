@@ -1,7 +1,9 @@
 module smartinscription::content_type{
     use std::string::{Self, String};
+    use sui::bcs;
     use smartinscription::movescription::{Self, Metadata};
     use smartinscription::string_util;
+    use smartinscription::type_util;
 
     const CONTENT_TYPE_TEXT_PLAIN: vector<u8>  = b"text/plain";
     const CONTENT_TYPE_TEXT_HTML: vector<u8>  = b"text/html";
@@ -18,6 +20,7 @@ module smartinscription::content_type{
 
     const CONTENT_TYPE_APPLICATION_JSON: vector<u8>  = b"application/json";
     const CONTENT_TYPE_APPLICATION_PDF: vector<u8>  = b"application/pdf";
+    const CONTENT_TYPE_APPLICATION_BCS: vector<u8>  = b"application/bcs";
 
     public fun content_type_text_plain(): String{
         string::utf8(CONTENT_TYPE_TEXT_PLAIN)
@@ -71,6 +74,16 @@ module smartinscription::content_type{
         string::utf8(CONTENT_TYPE_APPLICATION_PDF)
     }
 
+    public fun content_type_application_bcs(): String{
+        string::utf8(CONTENT_TYPE_APPLICATION_BCS)
+    }
+
+    public fun content_type_application_bcs_with_type_name(type_name: String): String{
+        let content_type = string::utf8(CONTENT_TYPE_APPLICATION_BCS);
+        string::append_utf8(&mut content_type, b"; type_name=");
+        string::append(&mut content_type, type_name);
+        content_type
+    }
     
     public fun is_text(content_type: &String): bool{
         string_util::starts_with(string::bytes(content_type), &b"text/") || string::bytes(content_type) == &CONTENT_TYPE_APPLICATION_JSON
@@ -80,12 +93,22 @@ module smartinscription::content_type{
         string_util::starts_with(string::bytes(content_type), &b"image/")
     }
 
+    public fun is_bcs(content_type: &String): bool{
+        string_util::starts_with(string::bytes(content_type), &CONTENT_TYPE_APPLICATION_BCS)
+    }
+
     public fun new_string_metadata(text: &String): Metadata{
         movescription::new_metadata(content_type_text_plain(), *string::bytes(text))
     }
 
-    public fun new_ascii_metadata(text: &std::ascii::String): Metadata{
+    public fun new_ascii_metadata(text: &std::ascii::String): Metadata {
         movescription::new_metadata(content_type_text_plain(), *std::ascii::as_bytes(text))
+    }
+
+    public fun new_bcs_metadata<T>(content: &T): Metadata {
+        let bytes = bcs::to_bytes(content);
+        let type_name = string::from_ascii(type_util::type_to_name<T>());
+        movescription::new_metadata(content_type_application_bcs_with_type_name(type_name), bytes)
     }
 
     #[test]
