@@ -1,5 +1,7 @@
 module smartinscription::content_type{
     use std::string::{Self, String};
+    use std::option::{Self, Option};
+    use std::vector;
     use sui::bcs;
     use smartinscription::movescription::{Self, Metadata};
     use smartinscription::string_util;
@@ -78,11 +80,27 @@ module smartinscription::content_type{
         string::utf8(CONTENT_TYPE_APPLICATION_BCS)
     }
 
-    public fun content_type_application_bcs_with_type_name(type_name: String): String{
+    public fun content_type_application_bcs_with_type_name<T>(): String{
         let content_type = string::utf8(CONTENT_TYPE_APPLICATION_BCS);
+        let type_name = string::from_ascii(type_util::type_to_name<T>());
         string::append_utf8(&mut content_type, b"; type_name=");
         string::append(&mut content_type, type_name);
         content_type
+    }
+
+    public fun get_bcs_type_name(content_type: &String): Option<std::ascii::String>{
+        if(!is_bcs(content_type)){
+            option::none()
+        }else{
+            let bytes = string::bytes(content_type);
+            let len = vector::length(bytes);
+            let (contains, idx) = string_util::index_of(bytes, &b"type_name=");
+            if(contains){
+                option::some(std::ascii::string(string_util::substring(bytes, idx+10,len)))
+            }else{
+                option::none()
+            }
+        }
     }
     
     public fun is_text(content_type: &String): bool{
@@ -107,8 +125,7 @@ module smartinscription::content_type{
 
     public fun new_bcs_metadata<T>(content: &T): Metadata {
         let bytes = bcs::to_bytes(content);
-        let type_name = string::from_ascii(type_util::type_to_name<T>());
-        movescription::new_metadata(content_type_application_bcs_with_type_name(type_name), bytes)
+        movescription::new_metadata(content_type_application_bcs_with_type_name<T>(), bytes)
     }
 
     #[test]
@@ -123,5 +140,18 @@ module smartinscription::content_type{
     fun test_is_image(){
         assert!(is_image(&string::utf8(b"image/jpeg")), 2);
         assert!(!is_image(&string::utf8(b"text/plain")), 3); 
+    }
+
+    #[test_only]
+    struct BCSMetadata{
+    }
+    #[test]
+    fun test_bcs_type_name(){
+        let ct = content_type_application_bcs_with_type_name<BCSMetadata>();
+        assert!(is_bcs(&ct), 1);
+        let type_name = get_bcs_type_name(&ct);
+        assert!(option::is_some(&type_name), 2);
+        let type_name = option::destroy_some(type_name);
+        assert!(type_name == type_util::type_to_name<BCSMetadata>(), 3); 
     }
 }
