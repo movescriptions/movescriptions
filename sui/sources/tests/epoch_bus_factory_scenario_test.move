@@ -35,7 +35,7 @@ module smartinscription::epoch_bus_factory_scenario_test {
         let test_tick_record = {
             let now_ms = clock::timestamp_ms(&clock);
             let tick_name = tick_factory::do_mint(&mut tick_tick_record,move_tick_scription, b"TEST", &clock, test_scenario::ctx(scenario));
-            epoch_bus_factory::do_deploy(&mut deploy_record, &mut tick_tick_record, tick_name, total_supply, 1000, now_ms, epoch_count, test_scenario::ctx(scenario));
+            epoch_bus_factory::do_deploy(&mut deploy_record, &mut tick_tick_record, tick_name, total_supply, 1000, now_ms, epoch_count, &clock, test_scenario::ctx(scenario));
             
             test_scenario::next_tx(scenario, admin);
             test_scenario::take_shared<movescription::TickRecordV2>(scenario)
