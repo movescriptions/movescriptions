@@ -48,7 +48,7 @@ module smartinscription::tick_factory_scenario_test {
             assert!(metadata::text_metadata_miner(&tick_name_metadata) == usera, 6);
             
             //deploy the TEST tick
-            let tick_record = tick_factory::do_deploy(&mut deploy_record, &mut tick_tick_record, test_tick_name1_movescription, test_tick_total_supply, true, WITNESS{}, test_scenario::ctx(scenario));
+            let tick_record = tick_factory::do_deploy(&mut deploy_record, &mut tick_tick_record, test_tick_name1_movescription, test_tick_total_supply, true, WITNESS{}, &clock, test_scenario::ctx(scenario));
             let test_ms = mint_test_ms(&mut tick_record,1, test_scenario::ctx(scenario));
             assert!(movescription::check_tick(&test_ms, test_tick_name1), 6);
             transfer::public_transfer(test_ms, usera);

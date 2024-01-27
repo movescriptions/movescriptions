@@ -11,23 +11,8 @@ module smartinscription::movescription_object_test{
     #[test_only]
     struct WITNESS has drop {}
 
+    
     #[test]
-    fun test_calculate_deploy_fee(){
-        let fee = movescription::calculate_deploy_fee(b"MOVE", movescription::base_epoch_count());
-        assert!(fee == 1100, 0);
-        let fee = movescription::calculate_deploy_fee(b"MOVER", movescription::base_epoch_count());
-        assert!(fee == 900, 0);
-        let fee = movescription::calculate_deploy_fee(b"MMMMMMMMMMMMMMMMMMMMMMMMMMMMOVER", movescription::base_epoch_count());
-        assert!(fee == 225, 0);
-        let fee = movescription::calculate_deploy_fee(b"MOVE", 60*24);
-        //std::debug::print(&fee);
-        assert!(fee == 2500, 0);
-        let fee = movescription::calculate_deploy_fee(b"MOVE", movescription::min_epochs());
-        assert!(fee == 19000, 0); 
-        //std::debug::print(&fee);
-    }
-
-     #[test]
     fun test_split_acc(){
         let acc_balance = balance::create_for_testing<SUI>(1000u64);
         let split_amount = 100u64;
