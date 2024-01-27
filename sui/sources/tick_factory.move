@@ -7,7 +7,6 @@ module smartinscription::tick_factory {
     use sui::sui::SUI;
     use sui::table::{Self, Table};
     use sui::clock::{Self, Clock};
-    use sui::bcs;
     use sui::balance;
     use smartinscription::movescription::{Self, DeployRecord, TickRecordV2, Movescription, Metadata};
     use smartinscription::content_type;
@@ -15,6 +14,7 @@ module smartinscription::tick_factory {
     use smartinscription::assert_util;
     use smartinscription::tick_name::{Self, is_tick_name_valid, is_tick_name_reserved};
     use smartinscription::util;
+    use smartinscription::metadata;
 
     const TOTAL_SUPPLY: u64 = 0xFFFFFFFFFFFFFFFF; // 18446744073709551615
     const INIT_LOCKED_MOVE: u64 = 10000;
@@ -22,19 +22,12 @@ module smartinscription::tick_factory {
     const ErrorInvalidTickRecord: u64 = 1;
     const ErrorInvaidTickName: u64 = 2;
     const ErrorTickNameNotAvailable: u64 = 3;
-    const ErrorInvalidMetadata: u64 = 4;
 
     struct WITNESS has drop{}
     
     struct TickFactory has store{
         // Tick name -> tick mint time
         tick_names: Table<String, u64>,
-    }
-
-    struct TickNameMetadta has store, copy, drop {
-        tick_name: String,
-        timestamp_ms: u64,
-        miner: address,
     }
     
     #[lint_allow(share_owned)]
@@ -63,9 +56,9 @@ module smartinscription::tick_factory {
         ctx: &mut TxContext
     ) : TickRecordV2 {
         assert_util::assert_tick_tick(&tick_name_movescription);
-        let tick_name_metadata = decode_metadata(&tick_name_movescription);
-        let new_tick_record = movescription::internal_deploy_with_witness(deploy_record, tick_name_metadata.tick_name, total_supply, burnable, _witness, ctx);
-        let (coin, locked_movescription) = internal_burn(tick_tick_record, tick_name_movescription, tick_name_metadata.tick_name, ctx);
+        let (tick_name, _timestamp_ms, _miner) = decode_metadata(&tick_name_movescription);
+        let new_tick_record = movescription::internal_deploy_with_witness(deploy_record, tick_name, total_supply, burnable, _witness, ctx);
+        let (coin, locked_movescription) = internal_burn(tick_tick_record, tick_name_movescription, tick_name, ctx);
         //TODO charge deploy fee
         transfer::public_transfer(coin, tx_context::sender(ctx));
         if(option::is_some(&locked_movescription)){
@@ -113,44 +106,15 @@ module smartinscription::tick_factory {
         transfer::public_transfer(ms, tx_context::sender(ctx));
     }
 
-    public fun new_tick_metadata(tick_name: String, timestamp_ms: u64, miner: address): Metadata {
-        let tick_name_metadata = TickNameMetadta{
-            tick_name: tick_name,
-            timestamp_ms: timestamp_ms,
-            miner: miner,
-        };
-         content_type::new_bcs_metadata(&tick_name_metadata)
-    }
-
-    public fun decode_metadata(tick_name_movescription: &Movescription) : TickNameMetadta {
-        assert_util::assert_tick_tick(tick_name_movescription);
-        let metadata = movescription::metadata(tick_name_movescription);
-        let metadata = option::destroy_some(metadata);
-        let (ct, content) = movescription::unpack_metadata(metadata);
-        assert!(content_type::is_bcs(&ct), ErrorInvalidMetadata);
-        let bcs = bcs::new(content);
-        let tick_name = ascii::string(bcs::peel_vec_u8(&mut bcs));
-        let timestamp_ms = bcs::peel_u64(&mut bcs);
-        let miner = bcs::peel_address(&mut bcs);
-        TickNameMetadta{
-            tick_name,
-            timestamp_ms,
-            miner
-        }
-    }
-
-    fun internal_burn(tick_record: &mut TickRecordV2, movescription: Movescription, tick_name: String, ctx: &mut TxContext) :(Coin<SUI>, Option<Movescription>) {
-        movescription::do_burn_with_witness(tick_record, movescription, ascii::into_bytes(tick_name), WITNESS{}, ctx)
-    }
 
     public fun do_burn(tick_record: &mut TickRecordV2, movescription: Movescription, ctx: &mut TxContext) :(Coin<SUI>, Option<Movescription>) {
         assert!(movescription::check_tick_record(tick_record, tick()), ErrorInvalidTickRecord);
         assert_util::assert_tick_tick(&movescription);
-        let metadata = decode_metadata(&movescription);
+        let (tick_name, _timestamp_ms, _miner) = decode_metadata(&movescription);
         // recycle the tick name when burn.
         let tick_factory = movescription::tick_record_borrow_mut_df<TickFactory, WITNESS>(tick_record, WITNESS{});
-        table::remove(&mut tick_factory.tick_names, metadata.tick_name);
-        internal_burn(tick_record, movescription, metadata.tick_name, ctx)
+        table::remove(&mut tick_factory.tick_names, tick_name);
+        internal_burn(tick_record, movescription, tick_name, ctx)
     }
 
     #[lint_allow(self_transfer)]
@@ -169,25 +133,29 @@ module smartinscription::tick_factory {
     }
 
     /// Check if the tick name is available, if it has bean minted or deployed or reserved, it is not available
-    public fun is_tick_name_available(tick_record: &mut TickRecordV2, tick_name: vector<u8>) : bool {
+    public fun is_tick_name_available(tick_record: &TickRecordV2, tick_name: vector<u8>) : bool {
         string_util::to_uppercase(&mut tick_name);
         let tick_name_str = ascii::string(tick_name);
         let tick_factory = movescription::tick_record_borrow_df<TickFactory>(tick_record);
         !table::contains(&tick_factory.tick_names, tick_name_str) && !is_tick_name_reserved(ascii::into_bytes(tick_name_str))
     }
 
-    // ===== TickNameMetadta functions =====
-
-    public fun metadata_tick_name(tick_name_metadata: &TickNameMetadta) : String {
-        tick_name_metadata.tick_name
+    fun new_tick_metadata(tick_name: String, timestamp_ms: u64, miner: address): Metadata {
+        let text_metadata = metadata::new_ascii_metadata(tick_name, timestamp_ms, miner);
+        content_type::new_bcs_metadata(&text_metadata)
     }
 
-    public fun metadata_timestamp_ms(tick_name_metadata: &TickNameMetadta) : u64 {
-        tick_name_metadata.timestamp_ms
+    fun decode_metadata(tick_name_movescription: &Movescription) : (String, u64, address) {
+        assert_util::assert_tick_tick(tick_name_movescription);
+        let metadata = movescription::metadata(tick_name_movescription);
+        let metadata = option::destroy_some(metadata);
+        let text_metadata = metadata::decode_text_metadata(&metadata);
+        let (text, timestamp_ms, miner) = metadata::unpack_text_metadata(text_metadata);
+        (ascii::string(text), timestamp_ms, miner)
     }
 
-    public fun metadata_miner(tick_name_metadata: &TickNameMetadta) : address {
-        tick_name_metadata.miner
+    fun internal_burn(tick_record: &mut TickRecordV2, movescription: Movescription, tick_name: String, ctx: &mut TxContext) :(Coin<SUI>, Option<Movescription>) {
+        movescription::do_burn_with_witness(tick_record, movescription, ascii::into_bytes(tick_name), WITNESS{}, ctx)
     }
 
     // ===== Constants functions =====
