@@ -137,7 +137,7 @@ module smartinscription::movescription_object_test{
         let tx_context = tx_context::dummy();
 
         let tick = string(b"MOVE");
-        let tick_record = movescription::new_tick_record_for_testing<WITNESS>(tick, 1000000, 10000, WITNESS{},&mut tx_context);
+        let tick_record = movescription::new_tick_record_for_testing<WITNESS>(tick, 1000000, 10000, true, WITNESS{},&mut tx_context);
         
         let amount = 100u64;
         let acc_balance = 50;

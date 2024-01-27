@@ -19,9 +19,10 @@ module smartinscription::movescription {
     use smartinscription::type_util::{Self, type_to_name};
     use smartinscription::tick_name;
 
-    friend smartinscription::name_server_factory;
+    friend smartinscription::name_factory;
     friend smartinscription::tick_factory;
     friend smartinscription::epoch_bus_factory;
+    friend smartinscription::init;
 
 
     // ======== Constants =========
@@ -60,7 +61,9 @@ module smartinscription::movescription {
     //const ENotEnoughDeployFee: u64 = 22;
     //const ETemporarilyDisabled: u64 = 23;
     const ErrorNotWitness: u64 = 24;
-    const ErrorUnexpectedTick: u64 = 25;
+    //const ErrorUnexpectedTick: u64 = 25;
+    const ErrorCanNotBurnByOwner: u64 = 26;
+    const ErrorNotZero: u64 = 27;
 
     // ======== Types =========
     struct Movescription has key, store {
@@ -141,7 +144,9 @@ module smartinscription::movescription {
         version: u64,
         tick: String,
         total_supply: u64,
-        // The mint factory type name
+        /// The movescription can be burned by the owner 
+        burnable: bool,
+        /// The mint factory type name
         mint_factory: String,
         stat: TickStat,
     }
@@ -169,6 +174,7 @@ module smartinscription::movescription {
         deployer: address,
         tick: String,
         total_supply: u64,
+        burnable: bool,
     }
 
     struct MintTick has copy, drop {
@@ -203,10 +209,12 @@ module smartinscription::movescription {
     // ======== Functions =========
     fun init(otw: MOVESCRIPTION, ctx: &mut TxContext) {
         let deploy_record = DeployRecord { id: object::new(ctx), version: VERSION, record: table::new(ctx) };
+        transfer::share_object(deploy_record);
+
         // The original version auto deploy `MOVE` in this init function
         // after refactor, the new version deploy `MOVE` in epoch_bus_factory
         //do_deploy(&mut deploy_record, protocol_tick(), 100_0000_0000, PROTOCOL_START_TIME_MS, 60*24*15, 100000000, ctx);
-        transfer::share_object(deploy_record);
+        
         let keys = vector[
             std::string::utf8(b"tick"),
             std::string::utf8(b"amount"),
@@ -303,30 +311,11 @@ module smartinscription::movescription {
         abort EDeprecatedFunction
     }
 
-    #[lint_allow(self_transfer)]
-    public fun do_deploy_with_witness<W: drop>(
-        deploy_record: &mut DeployRecord, 
-        tick_name: Movescription,
-        total_supply: u64,
-        _witness: W,
-        ctx: &mut TxContext
-    ) : TickRecordV2 {
-        // assert_protocol_tick_name_tick(&tick_name);
-        assert_protocol_tick_name(&tick_name);
-        let Movescription { id, amount: _, tick: _, attach_coin:_, acc, metadata } = tick_name;
-        object::delete(id);
-        //TODO charge deploy fee
-        let acc_coin = coin::from_balance<SUI>(acc, ctx);
-        transfer::public_transfer(acc_coin, tx_context::sender(ctx));
-        let metadata = option::destroy_some(metadata);
-        let tick = ascii::string(metadata.content);
-        internal_deploy_with_witness(deploy_record, tick, total_supply, _witness, ctx)
-    }
-
     public(friend) fun internal_deploy_with_witness<W: drop>(
         deploy_record: &mut DeployRecord, 
         tick: String,
         total_supply: u64,
+        burnable: bool,
         _witness: W,
         ctx: &mut TxContext
     ) : TickRecordV2 {
@@ -342,6 +331,7 @@ module smartinscription::movescription {
             version: VERSION,
             tick: tick,
             total_supply,
+            burnable,
             mint_factory,
             stat: TickStat {
                 remain: total_supply,
@@ -356,6 +346,7 @@ module smartinscription::movescription {
             deployer: tx_context::sender(ctx),
             tick: tick,
             total_supply,
+            burnable,
         });
         tick_record
     }
@@ -418,7 +409,31 @@ module smartinscription::movescription {
         do_merge(inscription1, inscription2);
     }
 
-    // ========= Burn functions =========
+    // ========= Destroy and Burn functions =========
+
+    public fun is_zero(self: &Movescription): bool {
+        if(self.amount != 0 || self.attach_coin != 0 || balance::value(&self.acc) != 0){
+            return false
+        };
+        if(contains_locked(self)){
+            let locked_movescription = borrow_locked(self);
+            return is_zero(locked_movescription)
+        };
+        true
+    }
+
+    public fun destroy_zero(self: Movescription) {
+        assert!(self.amount == 0, ErrorNotZero);
+        assert!(self.attach_coin == 0, EAttachDFExists);
+        assert!(balance::value(&self.acc) == 0, ErrorNotZero);
+        if(contains_locked(&self)){
+            let locked_movescription = unlock_box(&mut self);
+            destroy_zero(locked_movescription);
+        };
+        let Movescription { id, amount: _, tick: _, attach_coin:_, acc, metadata:_ } = self;
+        balance::destroy_zero(acc);
+        object::delete(id);
+    }
 
     /// Burn inscription and return the acc SUI, without message and BurnRecipt
     public fun do_burn(
@@ -473,8 +488,29 @@ module smartinscription::movescription {
         do_burn_with_message_v2(tick_record, inscription, vector::empty(), ctx)
     }
 
+    public fun do_burn_with_witness<W: drop>(
+        tick_record: &mut TickRecordV2,
+        inscription: Movescription,
+        message: vector<u8>,
+        _witness: W,
+        ctx: &mut TxContext
+    ) : (Coin<SUI>, Option<Movescription>) {
+        type_util::assert_witness<W>(tick_record.mint_factory);
+        internal_burn(tick_record, inscription, message, ctx)
+    }
+
     /// Burn Movescription without BurnRecipt
     public fun do_burn_with_message_v2(
+        tick_record: &mut TickRecordV2,
+        inscription: Movescription,
+        message: vector<u8>,
+        ctx: &mut TxContext
+    ) : (Coin<SUI>, Option<Movescription>) {
+        assert!(tick_record.burnable, ErrorCanNotBurnByOwner);
+        internal_burn(tick_record, inscription, message, ctx)
+    }
+
+    fun internal_burn(
         tick_record: &mut TickRecordV2,
         inscription: Movescription,
         message: vector<u8>,
@@ -712,37 +748,7 @@ module smartinscription::movescription {
         locked_movescription
     }
 
-    // ===== check tick util functions =====
-
-    /// Assert the tick of Movescription is protocol tick `MOVE`
-    public fun assert_protocol_tick(ms: &Movescription) {
-        assert!(ascii::into_bytes(ms.tick) == tick_name::protocol_tick(), ErrorUnexpectedTick);
-    }
-
-    /// Assert the tick of Movescription is protocol tick name tick `TICK`
-    public fun assert_protocol_tick_name_tick(ms: &Movescription) {
-        assert!(ascii::into_bytes(ms.tick) == tick_name::protocol_tick_name_tick(), ErrorUnexpectedTick);
-    }
-    
-    /// Assert the tick of Movescription is protocol tick name service tick `NAME`
-    public fun assert_protocol_name_service_tick(ms: &Movescription) {
-        assert!(ascii::into_bytes(ms.tick) == tick_name::protocol_name_service_tick(), ErrorUnexpectedTick);
-    }
-
-    
-    /// Assert the tick of Movescription is protocol tick name tick `TICK` or `NAME`
-    public fun assert_protocol_tick_name(ms: &Movescription){
-        let ascii_tick_name = ascii::into_bytes(ms.tick);
-        assert!( ascii_tick_name == tick_name::protocol_tick_name_tick() || ascii_tick_name == tick_name::protocol_name_service_tick(), ErrorUnexpectedTick);
-    }
-
-    public fun assert_tick(ms: &Movescription, tick: vector<u8>) {
-        assert!(check_tick(ms, tick), ErrorUnexpectedTick);
-    }
-
-    public fun assert_tick_record(tick_record: &TickRecordV2, tick: vector<u8>) {
-        assert!(check_tick_record(tick_record, tick), ErrorUnexpectedTick);
-    }
+    // ===== check tick util functions ===== 
 
     // Security by check tick
     public fun check_tick(ms: &Movescription, tick: vector<u8>): bool {
@@ -902,6 +908,11 @@ module smartinscription::movescription {
         metadata.content
     }
 
+    public fun unpack_metadata(metadata: Metadata): (std::string::String, vector<u8>){
+        let Metadata{content_type, content} = metadata;
+        (content_type, content)
+    }
+
     // ======== Constants functions =========
 
     public fun epoch_duration_ms(): u64 {
@@ -917,7 +928,7 @@ module smartinscription::movescription {
     }
 
     public fun protocol_tick(): vector<u8> {
-        tick_name::protocol_tick()
+        tick_name::move_tick()
     }
 
     public fun protocol_start_time_ms(): u64 {
@@ -925,6 +936,10 @@ module smartinscription::movescription {
     }
 
     public fun protocol_tick_total_supply(): u64{
+        PROTOCOL_TICK_TOTAL_SUPPLY
+    }
+
+    public fun move_tick_total_supply(): u64{
         PROTOCOL_TICK_TOTAL_SUPPLY
     }
 
@@ -953,14 +968,15 @@ module smartinscription::movescription {
     }
 
     #[test_only]
-    public fun deploy_with_witness_for_testing<W: drop>(
+    public fun deploy_for_testing<W: drop>(
         deploy_record: &mut DeployRecord,
         tick: String,
         total_supply: u64,
+        burnable: bool,
         witness: W,
         ctx: &mut TxContext
     ) : TickRecordV2 {
-        internal_deploy_with_witness(deploy_record, tick, total_supply, witness, ctx)
+        internal_deploy_with_witness(deploy_record, tick, total_supply, burnable, witness, ctx)
     }
 
     #[test_only]
@@ -986,6 +1002,7 @@ module smartinscription::movescription {
         tick: String,
         total_supply: u64,
         current_supply: u64, 
+        burnable: bool,
         _witness: W,
         ctx: &mut TxContext
     ) : TickRecordV2 {
@@ -996,6 +1013,7 @@ module smartinscription::movescription {
             version: VERSION,
             tick: tick,
             total_supply,
+            burnable,
             mint_factory,
             stat: TickStat {
                 remain: total_supply - current_supply,
@@ -1008,7 +1026,7 @@ module smartinscription::movescription {
 
     #[test_only]
     public fun drop_tick_record_for_testing(tick_record: TickRecordV2) {
-        let TickRecordV2 { id, version: _, tick: _, total_supply: _, mint_factory: _, stat: _ } = tick_record;
+        let TickRecordV2 { id, version: _, tick: _, total_supply: _, burnable: _,  mint_factory: _, stat: _ } = tick_record;
         object::delete(id);
     }
 }

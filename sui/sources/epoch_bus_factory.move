@@ -12,15 +12,17 @@ module smartinscription::epoch_bus_factory{
     use sui::event::emit;
     use smartinscription::movescription::{Self, Movescription, DeployRecord, TickRecordV2};
     use smartinscription::tick_name;
+    use smartinscription::tick_factory;
+    use smartinscription::assert_util;
 
+    friend smartinscription::init;
 
     const EPOCH_DURATION_MS: u64 = 60 * 1000;
     const MIN_EPOCHS: u64 = 60*2;
     const EPOCH_MAX_PLAYER: u64 = 500;
 
     const ErrorEpochNotStarted: u64 = 1;
-    const ErrorAlreadyDeployed: u64 = 2;
-    const ErrorInvalidEpoch: u64 = 3;
+    const ErrorInvalidEpoch: u64 = 2;
 
     struct EpochRecord has store {
         epoch: u64,
@@ -55,34 +57,38 @@ module smartinscription::epoch_bus_factory{
 
     struct WITNESS has drop {}
 
-    /// Deploy protocl tick `MOVE`
+
+    /// Deploy `MOVE` tick
     /// The original version deploy MOVE in the `movescription::init` function
     /// This version do not affect the origin version on mainnet. 
-    public entry fun deploy_protocol_tick(
+    public fun deploy_move_tick(
         deploy_record: &mut DeployRecord, 
         ctx: &mut TxContext) {
-        let tick = tick_name::protocol_tick();
-        assert!(!movescription::is_deployed(deploy_record, tick), ErrorAlreadyDeployed);
-        let total_supply = movescription::protocol_tick_total_supply();
-        let init_locked_asset = 100000000;
+        let tick = tick_name::move_tick();
+        if(movescription::is_deployed(deploy_record, tick)){
+            return
+        };
+        let total_supply = movescription::move_tick_total_supply();
+        let init_locked_asset = 100000000; //0.1sui
         let epoch_count = 60*24*15;
-        let tick_record = movescription::internal_deploy_with_witness(deploy_record, ascii::string(tick), total_supply, WITNESS{}, ctx);
+        let tick_record = movescription::internal_deploy_with_witness(deploy_record, ascii::string(tick), total_supply, true, WITNESS{}, ctx);
         after_deploy(tick_record, total_supply, init_locked_asset, movescription::protocol_start_time_ms(), epoch_count, ctx);
     }
     
     /// Deploy the `tick_name` movescription by epoch_bus_factory
     public fun do_deploy(
-        deploy_record: &mut DeployRecord, 
+        deploy_record: &mut DeployRecord,
+        tick_tick_record: &mut TickRecordV2, 
         tick_name: Movescription,
         total_supply: u64,
         init_locked_asset: u64,
         start_time_ms: u64,
         epoch_count: u64, 
         ctx: &mut TxContext) {
-        movescription::assert_protocol_tick_name_tick(&tick_name);
+        assert_util::assert_tick_tick(&tick_name);
         assert!(epoch_count >= MIN_EPOCHS, ErrorInvalidEpoch);
         
-        let tick_record = movescription::do_deploy_with_witness(deploy_record, tick_name, total_supply, WITNESS{}, ctx);
+        let tick_record = tick_factory::do_deploy(deploy_record, tick_tick_record, tick_name, total_supply, true, WITNESS{}, ctx);
         after_deploy(tick_record, total_supply, init_locked_asset, start_time_ms, epoch_count, ctx);
     }
 
@@ -198,7 +204,7 @@ module smartinscription::epoch_bus_factory{
             let player = *vector::borrow(&players, idx);
             let acc_balance: Balance<SUI> = table::remove(&mut epoch_record.locked_assets, player);
             if (remain > 0) {
-                let ins: Movescription = new_movescription(tick_record, per_player_amount, acc_balance, ctx);
+                let ins: Movescription = internal_mint(tick_record, per_player_amount, acc_balance, ctx);
                 transfer::public_transfer(ins, player);
                 remain = remain - per_player_amount;
                 epoch_supply = epoch_supply + per_player_amount;
@@ -212,7 +218,7 @@ module smartinscription::epoch_bus_factory{
         if(real_epoch_amount < epoch_amount){
             // if the real_epoch_amount is less than epoch_amount, we send the remainder to the settle_user as a reward
             let remainder = epoch_amount - real_epoch_amount;
-            let ins: Movescription = new_movescription(tick_record, remainder, balance::zero<SUI>(), ctx);
+            let ins: Movescription = internal_mint(tick_record, remainder, balance::zero<SUI>(), ctx);
             transfer::public_transfer(ins, settle_user);
             remain = remain - remainder;
             epoch_supply = epoch_supply + remainder;
@@ -242,8 +248,13 @@ module smartinscription::epoch_bus_factory{
         movescription::tick_record_add_df(tick_record, factory, WITNESS{});
     }
 
-    fun new_movescription(tick_record: &mut TickRecordV2, amount: u64, acc_balance: Balance<SUI>, ctx: &mut TxContext): Movescription {
+    fun internal_mint(tick_record: &mut TickRecordV2, amount: u64, acc_balance: Balance<SUI>, ctx: &mut TxContext): Movescription {
         movescription::do_mint_with_witness(tick_record, acc_balance, amount, option::none(), WITNESS{}, ctx)
     }
 
+    // ======= Testing functions =========
+    #[test_only]
+    public fun mint_for_testing(tick_record: &mut TickRecordV2, amount: u64, acc_balance: Balance<SUI>, ctx: &mut TxContext) : Movescription {
+        internal_mint(tick_record, amount, acc_balance, ctx)
+    }
 }
