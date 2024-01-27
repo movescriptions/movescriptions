@@ -7,9 +7,9 @@ module smartinscription::name_factory_scenario_test{
     use sui::balance;
     use smartinscription::movescription::{Self, TickRecordV2};
     use smartinscription::name_factory;
-    use smartinscription::content_type;
     use smartinscription::scenario_test;
     use smartinscription::epoch_bus_factory;
+    use smartinscription::metadata;
 
     #[test_only]
     struct WITNESS has drop{}
@@ -20,6 +20,7 @@ module smartinscription::name_factory_scenario_test{
 
         let sender = @0xABBA;
         let test_name = b"alice";
+        let test_name2 = b"bob1";
      
         let scenario_val = test_scenario::begin(sender);
         let scenario = &mut scenario_val;
@@ -36,26 +37,38 @@ module smartinscription::name_factory_scenario_test{
         };
         
         test_scenario::next_tx(scenario, sender);
-        let name_movescription = {
+        {
             //Mint the NAME movescription, register the test_name
             let locked_move = epoch_bus_factory::mint_for_testing(&mut move_tick_record, name_factory::init_locked_move(), balance::zero(), test_scenario::ctx(scenario));
-            name_factory::do_mint(&mut name_tick_record, locked_move, test_name, &clock, test_scenario::ctx(scenario)) 
-        };
+            let name_movescription = name_factory::do_mint(&mut name_tick_record, locked_move, test_name, &clock, test_scenario::ctx(scenario)); 
         
-        test_scenario::next_tx(scenario, sender);
-        {
             assert!(movescription::amount(&name_movescription) == 1, 1);
             //std::debug::print(&name_movescription);
             assert!(std::ascii::into_bytes(movescription::tick(&name_movescription)) == name_factory::tick(), 2);
             let metadata_opt = movescription::metadata(&name_movescription);
             assert!(option::is_some(&metadata_opt), 3);
             let metadata = option::destroy_some(metadata_opt);
-            assert!(content_type::is_text(&movescription::metadata_content_type(&metadata)), 4);
-            assert!(movescription::metadata_content(&metadata) == test_name, 5);
-                      
+
+            let name_metadata = metadata::decode_text_metadata(&metadata);
+            assert!(metadata::text_metadata_text(&name_metadata) == &test_name, 5);
+            assert!(metadata::text_metadata_miner(&name_metadata) == sender, 6);
+            transfer::public_transfer(name_movescription, sender);
         };
+        
+        test_scenario::next_tx(scenario, sender);
+        //test burn name and recycle
+        {
+            //Mint a NAME movescription, register test_name2 
+            let locked_move = epoch_bus_factory::mint_for_testing(&mut move_tick_record, name_factory::init_locked_move(), balance::zero(), test_scenario::ctx(scenario));
+            let test_name2_movescription = name_factory::do_mint(&mut name_tick_record, locked_move, test_name2, &clock, test_scenario::ctx(scenario)); 
+
+            assert!(!name_factory::is_name_available(&name_tick_record, test_name2), 7);
+            test_scenario::next_tx(scenario, sender);
+            name_factory::burn(&mut name_tick_record, test_name2_movescription,test_scenario::ctx(scenario));
+            assert!(name_factory::is_name_available(&name_tick_record, test_name2), 8);
+        };
+
         test_scenario::return_shared(name_tick_record);
-        transfer::public_transfer(name_movescription, sender);
 
         clock::destroy_for_testing(clock);
         test_scenario::return_shared(deploy_record);

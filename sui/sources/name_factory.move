@@ -14,6 +14,7 @@ module smartinscription::name_factory {
     use smartinscription::content_type;
     use smartinscription::assert_util;
     use smartinscription::util;
+    use smartinscription::metadata;
 
     friend smartinscription::init;
 
@@ -76,7 +77,7 @@ module smartinscription::name_factory {
         let name_factory = movescription::tick_record_borrow_mut_df<NameFactory, WITNESS>(tick_record, WITNESS{});
         table::add(&mut name_factory.names, name_str, now);
        
-        let metadata = new_tick_metadata(name_str, now);
+        let metadata = new_name_metadata(name_str, now, tx_context::sender(ctx));
         let name_movescription = movescription::do_mint_with_witness(tick_record, balance::zero<SUI>(), 1, option::some(metadata), WITNESS{}, ctx);
         movescription::lock_within(&mut name_movescription, init_locked_move);
         name_movescription
@@ -85,10 +86,11 @@ module smartinscription::name_factory {
     public fun do_burn(tick_record: &mut TickRecordV2, movescription: Movescription, ctx: &mut TxContext) :(Coin<SUI>, Option<Movescription>) {
         assert!(movescription::check_tick_record(tick_record, tick()), ErrorInvalidTickRecord);
         assert_util::assert_name_tick(&movescription);
-        //TODO recycle the name when burn.
-        //let factory = movescription::tick_record_borrow_mut_df<NameFactory, WITNESS>(tick_record, WITNESS{});
-        //table::remove(&mut factory.names, metadata.tick_name);
-        movescription::do_burn_with_witness(tick_record, movescription, b"name", WITNESS{}, ctx)
+        let (name, _timestamp_ms, _miner) = decode_metadata(&movescription);
+        //recycle the name when burn.
+        let factory = movescription::tick_record_borrow_mut_df<NameFactory, WITNESS>(tick_record, WITNESS{});
+        table::remove(&mut factory.names, name);
+        movescription::do_burn_with_witness(tick_record, movescription, ascii::into_bytes(name), WITNESS{}, ctx)
     }
 
     #[lint_allow(self_transfer)]
@@ -107,9 +109,18 @@ module smartinscription::name_factory {
     }
     
     
-    public fun new_tick_metadata(tick: String, _timestamp_ms: u64): Metadata {
-         //TODO record mint time to the metadata
-         content_type::new_ascii_metadata(&tick)
+    fun new_name_metadata(name: String, timestamp_ms: u64, miner: address): Metadata {
+        let text_metadata = metadata::new_ascii_metadata(name, timestamp_ms, miner);
+        content_type::new_bcs_metadata(&text_metadata)
+    }
+
+    fun decode_metadata(name_movescription: &Movescription) : (String, u64, address) {
+        assert_util::assert_name_tick(name_movescription);
+        let metadata = movescription::metadata(name_movescription);
+        let metadata = option::destroy_some(metadata);
+        let text_metadata = metadata::decode_text_metadata(&metadata);
+        let (text, timestamp_ms, miner) = metadata::unpack_text_metadata(text_metadata);
+        (ascii::string(text), timestamp_ms, miner)
     }
 
     public fun tick() : vector<u8> {
@@ -117,7 +128,7 @@ module smartinscription::name_factory {
     }
     
     /// Check if the name is available, if it has bean minted, it is not available
-    public fun is_name_available(tick_record: &mut TickRecordV2, name: vector<u8>) : bool {
+    public fun is_name_available(tick_record: &TickRecordV2, name: vector<u8>) : bool {
         string_util::to_lowercase(&mut name);
         let name_str = ascii::string(name);
         let name_factory = movescription::tick_record_borrow_df<NameFactory>(tick_record);
