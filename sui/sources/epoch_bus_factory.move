@@ -20,6 +20,8 @@ module smartinscription::epoch_bus_factory{
     const EPOCH_DURATION_MS: u64 = 60 * 1000;
     const MIN_EPOCHS: u64 = 60*2;
     const EPOCH_MAX_PLAYER: u64 = 500;
+    const INIT_LOCKED_SUI_OF_MOVE: u64 = 100000000; //0.1sui
+    const EPOCH_ACCOUNT_OF_MOVE: u64 = 60*24*15;
 
     const ErrorEpochNotStarted: u64 = 1;
     const ErrorInvalidEpoch: u64 = 2;
@@ -69,10 +71,22 @@ module smartinscription::epoch_bus_factory{
             return
         };
         let total_supply = movescription::move_tick_total_supply();
-        let init_locked_asset = 100000000; //0.1sui
-        let epoch_count = 60*24*15;
         let tick_record = movescription::internal_deploy_with_witness(deploy_record, ascii::string(tick), total_supply, true, WITNESS{}, ctx);
-        after_deploy(tick_record, total_supply, init_locked_asset, movescription::protocol_start_time_ms(), epoch_count, ctx);
+        after_deploy(tick_record, total_supply, INIT_LOCKED_SUI_OF_MOVE, movescription::protocol_start_time_ms(), EPOCH_ACCOUNT_OF_MOVE, ctx);
+    }
+
+    /// Deploy the `tick_name` movescription by epoch_bus_factory
+    public entry fun deploy(
+        deploy_record: &mut DeployRecord,
+        tick_tick_record: &mut TickRecordV2, 
+        tick_name: Movescription,
+        total_supply: u64,
+        init_locked_asset: u64,
+        start_time_ms: u64,
+        epoch_count: u64, 
+        clock: &Clock,
+        ctx: &mut TxContext) {
+       do_deploy(deploy_record, tick_tick_record, tick_name, total_supply, init_locked_asset, start_time_ms, epoch_count, clock, ctx);
     }
     
     /// Deploy the `tick_name` movescription by epoch_bus_factory
@@ -251,6 +265,11 @@ module smartinscription::epoch_bus_factory{
 
     fun internal_mint(tick_record: &mut TickRecordV2, amount: u64, acc_balance: Balance<SUI>, ctx: &mut TxContext): Movescription {
         movescription::do_mint_with_witness(tick_record, acc_balance, amount, option::none(), WITNESS{}, ctx)
+    }
+
+    // ====== Constant functions =====
+    public fun init_locked_sui_of_move(): u64{
+        INIT_LOCKED_SUI_OF_MOVE
     }
 
     // ======= Testing functions =========

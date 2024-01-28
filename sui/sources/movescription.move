@@ -23,6 +23,7 @@ module smartinscription::movescription {
     friend smartinscription::tick_factory;
     friend smartinscription::epoch_bus_factory;
     friend smartinscription::init;
+    friend smartinscription::mint_get_factory;
 
 
     // ======== Constants =========

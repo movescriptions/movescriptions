@@ -19,6 +19,7 @@ module smartinscription::epoch_bus_factory_scenario_test {
         // let usera = @0x1234;
         // let non_coin_holder = @0x5678;
         // let black_hole = @0x0000;
+        let test_tick = b"EPOCH_BUS_TEST";
 
         let scenario_val = test_scenario::begin(admin);
         let scenario = &mut scenario_val;
@@ -34,7 +35,7 @@ module smartinscription::epoch_bus_factory_scenario_test {
         test_scenario::next_tx(scenario, admin);
         let test_tick_record = {
             let now_ms = clock::timestamp_ms(&clock);
-            let tick_name = tick_factory::do_mint(&mut tick_tick_record,move_tick_scription, b"TEST", &clock, test_scenario::ctx(scenario));
+            let tick_name = tick_factory::do_mint(&mut tick_tick_record,move_tick_scription, test_tick, &clock, test_scenario::ctx(scenario));
             epoch_bus_factory::do_deploy(&mut deploy_record, &mut tick_tick_record, tick_name, total_supply, 1000, now_ms, epoch_count, &clock, test_scenario::ctx(scenario));
             
             test_scenario::next_tx(scenario, admin);

@@ -2,7 +2,9 @@
 module smartinscription::scenario_test{
     use sui::test_scenario::{Self, Scenario};
     use sui::clock::{Self, Clock};
-    use smartinscription::movescription::{Self, DeployRecord, TickRecordV2};
+    use sui::coin;
+    use sui::sui::SUI;
+    use smartinscription::movescription::{Self, DeployRecord, TickRecordV2, Movescription};
     use smartinscription::tick_factory;
     use smartinscription::epoch_bus_factory;
 
@@ -33,5 +35,27 @@ module smartinscription::scenario_test{
             test_scenario::take_shared<TickRecordV2>(scenario)
         };
         (c, deploy_record, tick_tick_record, move_tick_record)
+    }
+
+    #[test_only]
+    public fun mint_move_tick(scenario: &mut Scenario, move_tick_record: &mut movescription::TickRecordV2, sender: address, c: &mut clock::Clock) : Movescription{
+        test_scenario::next_tx(scenario, sender);
+        {
+            let test_sui = coin::mint_for_testing<SUI>(epoch_bus_factory::init_locked_sui_of_move(), test_scenario::ctx(scenario));
+            epoch_bus_factory::do_mint(move_tick_record, test_sui, c, test_scenario::ctx(scenario));
+        };
+        clock::increment_for_testing(c, movescription::epoch_duration_ms() + 1);
+
+        // send a new tx to settle the previous epoch
+        test_scenario::next_tx(scenario, sender);
+        {
+            let test_sui = coin::mint_for_testing<SUI>(epoch_bus_factory::init_locked_sui_of_move(), test_scenario::ctx(scenario));
+            epoch_bus_factory::do_mint(move_tick_record, test_sui, c, test_scenario::ctx(scenario));
+        };
+
+        test_scenario::next_tx(scenario, sender);
+        let first_inscription = test_scenario::take_from_sender<Movescription>(scenario);
+        assert!(movescription::tick(&first_inscription) == std::ascii::string(b"MOVE"), 1);
+        first_inscription
     }
 }

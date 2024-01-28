@@ -11,11 +11,12 @@ module smartinscription::tick_name{
     const MOVE_TICK: vector<u8> = b"MOVE";
     const TICK_TICK: vector<u8> = b"TICK";
     const NAME_TICK: vector<u8> = b"NAME";
+    const TEST_TICK: vector<u8> = b"TEST";
 
 
     public fun is_tick_name_reserved(tick_name: vector<u8>) : bool {
         string_util::to_uppercase(&mut tick_name);
-        tick_name == MOVE_TICK || tick_name == TICK_TICK || tick_name == NAME_TICK
+        tick_name == MOVE_TICK || tick_name == TICK_TICK || tick_name == NAME_TICK || tick_name == TEST_TICK
     }
 
     /// Check if the tick name is valid
@@ -59,6 +60,10 @@ module smartinscription::tick_name{
 
     public fun name_tick() : vector<u8> {
         NAME_TICK
+    }
+
+    public fun test_tick() : vector<u8> {
+        TEST_TICK
     }
     
     #[test]

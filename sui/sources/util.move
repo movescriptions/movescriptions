@@ -1,6 +1,7 @@
 module smartinscription::util {
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
+    use sui::coin::{Self, Coin};
     use smartinscription::movescription::{Self, Movescription};
 
     #[lint_allow(self_transfer)]
@@ -13,6 +14,17 @@ module smartinscription::util {
             let split_ms = movescription::do_split(&mut ms, amount, ctx);
             transfer::public_transfer(ms, tx_context::sender(ctx));
             split_ms
+        }
+    }
+
+    #[lint_allow(self_transfer)]
+    public fun split_coin_and_give_back<T>(coin: Coin<T>, amount: u64, ctx: &mut TxContext): Coin<T> {
+        if(coin::value(&coin) == amount){
+            coin
+        }else{
+            let split_coin = coin::split(&mut coin, amount, ctx);
+            transfer::public_transfer(coin, tx_context::sender(ctx));
+            split_coin
         }
     }
 }
