@@ -14,6 +14,7 @@ module smartinscription::epoch_bus_factory{
     use smartinscription::tick_name;
     use smartinscription::tick_factory;
     use smartinscription::assert_util;
+    use smartinscription::util;
 
     friend smartinscription::init;
 
@@ -21,7 +22,7 @@ module smartinscription::epoch_bus_factory{
     const MIN_EPOCHS: u64 = 60*2;
     const EPOCH_MAX_PLAYER: u64 = 500;
     const INIT_LOCKED_SUI_OF_MOVE: u64 = 100000000; //0.1sui
-    const EPOCH_ACCOUNT_OF_MOVE: u64 = 60*24*15;
+    const EPOCH_COUNT_OF_MOVE: u64 = 60*24*15;
 
     const ErrorEpochNotStarted: u64 = 1;
     const ErrorInvalidEpoch: u64 = 2;
@@ -30,7 +31,7 @@ module smartinscription::epoch_bus_factory{
         epoch: u64,
         start_time_ms: u64,
         players: vector<address>,
-        locked_assets: Table<address, Balance<SUI>>,
+        locked_sui: Table<address, Balance<SUI>>,
     }
 
     struct NewEpochEvent has copy, drop {
@@ -49,7 +50,7 @@ module smartinscription::epoch_bus_factory{
     }
 
     struct EpochBusFactory has store {
-        init_locked_asset: u64,
+        init_locked_sui: u64,
         start_time_ms: u64,
         epoch_count: u64,
         epoch_amount: u64,
@@ -72,7 +73,7 @@ module smartinscription::epoch_bus_factory{
         };
         let total_supply = movescription::move_tick_total_supply();
         let tick_record = movescription::internal_deploy_with_witness(deploy_record, ascii::string(tick), total_supply, true, WITNESS{}, ctx);
-        after_deploy(tick_record, total_supply, INIT_LOCKED_SUI_OF_MOVE, movescription::protocol_start_time_ms(), EPOCH_ACCOUNT_OF_MOVE, ctx);
+        after_deploy(tick_record, total_supply, INIT_LOCKED_SUI_OF_MOVE, movescription::protocol_start_time_ms(), EPOCH_COUNT_OF_MOVE, ctx);
     }
 
     /// Deploy the `tick_name` movescription by epoch_bus_factory
@@ -81,12 +82,12 @@ module smartinscription::epoch_bus_factory{
         tick_tick_record: &mut TickRecordV2, 
         tick_name: Movescription,
         total_supply: u64,
-        init_locked_asset: u64,
+        init_locked_sui: u64,
         start_time_ms: u64,
         epoch_count: u64, 
         clock: &Clock,
         ctx: &mut TxContext) {
-       do_deploy(deploy_record, tick_tick_record, tick_name, total_supply, init_locked_asset, start_time_ms, epoch_count, clock, ctx);
+       do_deploy(deploy_record, tick_tick_record, tick_name, total_supply, init_locked_sui, start_time_ms, epoch_count, clock, ctx);
     }
     
     /// Deploy the `tick_name` movescription by epoch_bus_factory
@@ -95,7 +96,7 @@ module smartinscription::epoch_bus_factory{
         tick_tick_record: &mut TickRecordV2, 
         tick_name: Movescription,
         total_supply: u64,
-        init_locked_asset: u64,
+        init_locked_sui: u64,
         start_time_ms: u64,
         epoch_count: u64, 
         clock: &Clock,
@@ -104,18 +105,18 @@ module smartinscription::epoch_bus_factory{
         assert!(epoch_count >= MIN_EPOCHS, ErrorInvalidEpoch);
         
         let tick_record = tick_factory::do_deploy(deploy_record, tick_tick_record, tick_name, total_supply, true, WITNESS{}, clock, ctx);
-        after_deploy(tick_record, total_supply, init_locked_asset, start_time_ms, epoch_count, ctx);
+        after_deploy(tick_record, total_supply, init_locked_sui, start_time_ms, epoch_count, ctx);
     }
 
     #[lint_allow(share_owned)]
     fun after_deploy(
         tick_record: TickRecordV2,
         total_supply: u64,
-        init_locked_asset: u64,
+        init_locked_sui: u64,
         start_time_ms: u64,
         epoch_count: u64, ctx: &mut TxContext) {
         let factory = EpochBusFactory{
-            init_locked_asset,
+            init_locked_sui,
             start_time_ms,
             epoch_count,
             epoch_amount: total_supply / epoch_count,
@@ -129,7 +130,7 @@ module smartinscription::epoch_bus_factory{
     #[lint_allow(self_transfer)]
     public fun do_mint(
         tick_record: &mut TickRecordV2,
-        init_locked_coin: Coin<SUI>,
+        locked_sui: Coin<SUI>,
         clk: &Clock,
         ctx: &mut TxContext
     ) {
@@ -141,15 +142,9 @@ module smartinscription::epoch_bus_factory{
 
         let sender: address = tx_context::sender(ctx);
         
-        let init_locked_asset = factory.init_locked_asset;
-        let acc_coin = if(coin::value<SUI>(&init_locked_coin) == init_locked_asset){
-            init_locked_coin
-        }else{
-            let acc_coin = coin::split<SUI>(&mut init_locked_coin, init_locked_asset, ctx);
-            transfer::public_transfer(init_locked_coin, sender);
-            acc_coin
-        };
-        let acc_balance: Balance<SUI> = coin::into_balance<SUI>(acc_coin);
+        let init_locked_sui = util::split_coin_and_give_back(locked_sui, factory.init_locked_sui, ctx);
+        
+        let acc_balance = coin::into_balance<SUI>(init_locked_sui);
 
         let current_epoch = factory.current_epoch;
         if (table::contains(&factory.epoch_records, current_epoch)){
@@ -170,18 +165,18 @@ module smartinscription::epoch_bus_factory{
     }
 
     fun mint_in_epoch(epoch_record: &mut EpochRecord, sender: address, acc_balance: Balance<SUI>){
-        if (!table::contains(&epoch_record.locked_assets, sender)) {
+        if (!table::contains(&epoch_record.locked_sui, sender)) {
             vector::push_back(&mut epoch_record.players, sender);
-            table::add(&mut epoch_record.locked_assets, sender, acc_balance);
+            table::add(&mut epoch_record.locked_sui, sender, acc_balance);
         } else {
-            let last_fee_balance: &mut Balance<SUI> = table::borrow_mut(&mut epoch_record.locked_assets, sender);
+            let last_fee_balance: &mut Balance<SUI> = table::borrow_mut(&mut epoch_record.locked_sui, sender);
             balance::join(last_fee_balance, acc_balance);
         };
     }
 
     fun new_epoch_record(tick: String, epoch: u64, now_ms: u64, sender: address, acc_balance: Balance<SUI>, ctx: &mut TxContext) : EpochRecord{
-        let locked_assets = table::new(ctx);
-        table::add(&mut locked_assets, sender, acc_balance);
+        let locked_sui = table::new(ctx);
+        table::add(&mut locked_sui, sender, acc_balance);
         emit(NewEpochEvent {
             tick,
             epoch,
@@ -191,7 +186,7 @@ module smartinscription::epoch_bus_factory{
             epoch,
             start_time_ms: now_ms,
             players: vector[sender],
-            locked_assets,
+            locked_sui,
         }
     }
 
@@ -217,7 +212,7 @@ module smartinscription::epoch_bus_factory{
         };
         while (idx < players_len) {
             let player = *vector::borrow(&players, idx);
-            let acc_balance: Balance<SUI> = table::remove(&mut epoch_record.locked_assets, player);
+            let acc_balance: Balance<SUI> = table::remove(&mut epoch_record.locked_sui, player);
             if (remain > 0) {
                 let ins: Movescription = internal_mint(tick_record, per_player_amount, acc_balance, ctx);
                 transfer::public_transfer(ins, player);
@@ -238,9 +233,9 @@ module smartinscription::epoch_bus_factory{
             remain = remain - remainder;
             epoch_supply = epoch_supply + remainder;
         };
-        // The locked_assets should be empty, this should not happen, add assert for debug
+        // The locked_sui should be empty, this should not happen, add assert for debug
         // We can remove this assert after we are sure there is no bug
-        assert!(table::is_empty(&epoch_record.locked_assets), 0);
+        assert!(table::is_empty(&epoch_record.locked_sui), 0);
 
         emit(SettleEpochEvent {
             tick,
@@ -270,6 +265,22 @@ module smartinscription::epoch_bus_factory{
     // ====== Constant functions =====
     public fun init_locked_sui_of_move(): u64{
         INIT_LOCKED_SUI_OF_MOVE
+    }
+
+    public fun epoch_count_of_move(): u64{
+        EPOCH_COUNT_OF_MOVE
+    }
+
+    public fun epoch_duration_ms(): u64 {
+        EPOCH_DURATION_MS
+    }
+
+    public fun min_epochs(): u64 {
+        MIN_EPOCHS
+    }
+
+    public fun epoch_max_player(): u64 {
+        EPOCH_MAX_PLAYER
     }
 
     // ======= Testing functions =========
