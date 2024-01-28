@@ -283,6 +283,64 @@ module smartinscription::epoch_bus_factory{
         EPOCH_MAX_PLAYER
     }
 
+    // ======= Migration functions ========
+
+    #[lint_allow(share_owned)]
+    public fun migrate_tick_record_to_v2(
+        deploy_record: &mut DeployRecord, 
+        tick_record: smartinscription::movescription::TickRecord, 
+        ctx: &mut TxContext){
+        let (tick_record_v2, start_time_ms, epoch_count, current_epoch, mint_fee, epoch_records) = 
+        movescription::migrate_tick_record_to_v2(deploy_record, tick_record, WITNESS{}, ctx);
+        let remain = movescription::tick_record_v2_remain(&tick_record_v2);
+        let new_epoch_records = if(remain == 0){
+            let epoch = 0;
+            // we use the length of epoch_records as the epoch_count
+            // becase some coindition may cause the epoch_count is less than the real epoch_count
+            let epoch_count = table::length(&epoch_records);
+            while(epoch < epoch_count){
+               let epoch_record = table::remove(&mut epoch_records, epoch);
+               drop_epoch_record(epoch_record); 
+            };
+            table::new(ctx)
+        }else{
+            let new_epoch_records = table::new(ctx);
+            let epoch = 0;
+            while(epoch <= current_epoch){
+                let epoch_record = migrate_epoch_record(table::remove(&mut epoch_records, epoch));
+                table::add(&mut new_epoch_records, epoch, epoch_record);
+                epoch = epoch + 1;
+            };
+            new_epoch_records
+        };
+        table::destroy_empty(epoch_records);
+        let factory = EpochBusFactory{
+            init_locked_sui: mint_fee,
+            start_time_ms,
+            epoch_count,
+            epoch_amount: movescription::tick_record_v2_total_supply(&tick_record_v2) / epoch_count,
+            current_epoch,
+            epoch_records: new_epoch_records,
+        };
+        movescription::tick_record_add_df(&mut tick_record_v2, factory, WITNESS{});
+        transfer::public_share_object(tick_record_v2);
+    }
+
+    fun drop_epoch_record(old_epoch_record: movescription::EpochRecord){
+        let (_epoch, _start_time_ms, _players, mint_fees) = movescription::unwrap_epoch_record(old_epoch_record);
+        table::destroy_empty(mint_fees);
+    }
+
+    fun migrate_epoch_record(old_epoch_record: movescription::EpochRecord) : EpochRecord {
+        let (epoch, start_time_ms, players, mint_fees) = movescription::unwrap_epoch_record(old_epoch_record);
+        EpochRecord {
+            epoch,
+            start_time_ms,
+            players,
+            locked_sui: mint_fees,
+        }
+    }
+
     // ======= Testing functions =========
     #[test_only]
     public fun mint_for_testing(tick_record: &mut TickRecordV2, amount: u64, acc_balance: Balance<SUI>, ctx: &mut TxContext) : Movescription {
