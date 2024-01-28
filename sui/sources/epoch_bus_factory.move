@@ -127,6 +127,14 @@ module smartinscription::epoch_bus_factory{
         transfer::public_share_object(tick_record);
     }
 
+    public entry fun mint(
+        tick_record: &mut TickRecordV2,
+        locked_sui: Coin<SUI>,
+        clk: &Clock,
+        ctx: &mut TxContext) {
+        do_mint(tick_record, locked_sui, clk, ctx);
+    }
+
     #[lint_allow(self_transfer)]
     public fun do_mint(
         tick_record: &mut TickRecordV2,

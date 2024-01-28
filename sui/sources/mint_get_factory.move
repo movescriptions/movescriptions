@@ -36,6 +36,18 @@ module smartinscription::mint_get_factory {
         after_deploy(tick_record, 10000, 0, 0);
     }
 
+    public entry fun deploy(
+        deploy_record: &mut DeployRecord,
+        tick_tick_record: &mut TickRecordV2, 
+        tick_name: Movescription,
+        total_supply: u64,
+        amount_per_mint: u64, 
+        init_locked_sui: u64, 
+        init_locked_move: u64,
+        clock: &Clock,
+        ctx: &mut TxContext) {
+        do_deploy(deploy_record, tick_tick_record, tick_name, total_supply, amount_per_mint, init_locked_sui, init_locked_move, clock, ctx);
+    }
 
     /// Deploy the `tick_name` movescription by mint_get_factory
     public fun do_deploy(
