@@ -100,10 +100,11 @@ module smartinscription::tick_factory {
         let sender = tx_context::sender(ctx);
         let init_locked_move = util::split_and_give_back(locked_move, INIT_LOCKED_MOVE, ctx);
     
-
-        let now = clock::timestamp_ms(clock);
+        string_util::to_uppercase(&mut tick_name);
         let tick_name_str = ascii::string(tick_name);
+        
         let tick_factory = movescription::tick_record_borrow_mut_df<TickFactory, WITNESS>(tick_record, WITNESS{});
+        let now = clock::timestamp_ms(clock);
         table::add(&mut tick_factory.tick_names, tick_name_str, now);
        
         let metadata = new_tick_metadata(tick_name_str, now, sender);
