@@ -302,14 +302,8 @@ module smartinscription::epoch_bus_factory{
         movescription::migrate_tick_record_to_v2(deploy_record, tick_record, WITNESS{}, ctx);
         let remain = movescription::tick_record_v2_remain(&tick_record_v2);
         let new_epoch_records = if(remain == 0){
-            let epoch = 0;
-            // we use the length of epoch_records as the epoch_count
-            // becase some coindition may cause the epoch_count is less than the real epoch_count
-            let epoch_count = table::length(&epoch_records);
-            while(epoch < epoch_count){
-               let epoch_record = table::remove(&mut epoch_records, epoch);
-               drop_epoch_record(epoch_record); 
-            };
+            // if the remain is 0, the epoch_records should be empty
+            // we should call `movescription::clean_finished_tick_record` to clean the epoch_records
             table::new(ctx)
         }else{
             let new_epoch_records = table::new(ctx);
@@ -332,11 +326,6 @@ module smartinscription::epoch_bus_factory{
         };
         movescription::tick_record_add_df(&mut tick_record_v2, factory, WITNESS{});
         transfer::public_share_object(tick_record_v2);
-    }
-
-    fun drop_epoch_record(old_epoch_record: movescription::EpochRecord){
-        let (_epoch, _start_time_ms, _players, mint_fees) = movescription::unwrap_epoch_record(old_epoch_record);
-        table::destroy_empty(mint_fees);
     }
 
     fun migrate_epoch_record(old_epoch_record: movescription::EpochRecord) : EpochRecord {

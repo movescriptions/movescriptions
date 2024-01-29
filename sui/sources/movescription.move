@@ -853,6 +853,18 @@ module smartinscription::movescription {
         (epoch, start_time_ms, players, mint_fees)
     }
 
+    // clean the epoch record after the tick mint is finished
+    public fun clean_finished_tick_record(tick_record: &mut TickRecord, max_epoch: u64) {
+        let max_epoch = sui::math::min(max_epoch, table::length(&tick_record.epoch_records));
+        let idx = max_epoch - 1;
+        while(idx > 0){
+            let epoch_record = table::remove(&mut tick_record.epoch_records, idx);
+            let (_, _, _, mint_fees) = unwrap_epoch_record(epoch_record);
+            table::destroy_empty(mint_fees);
+            idx = idx - 1;
+        };
+    }
+
     #[allow(unused_field)]
     struct TickRecord has key {
         id: UID,
