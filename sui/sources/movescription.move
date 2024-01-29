@@ -348,7 +348,37 @@ module smartinscription::movescription {
         transfer::public_transfer(ins, tx_context::sender(ctx));
     }
 
-    // ========= Destroy and Burn functions ========= 
+    // ========= Destroy and Burn functions =========
+
+    public fun zero(tick_record: &TickRecordV2, ctx: &mut TxContext) : Movescription{
+        new_movescription(0, tick_record.tick, balance::zero<SUI>(), option::none(), ctx)
+    }
+
+    public fun is_zero(self: &Movescription): bool {
+        if(self.amount != 0 || self.attach_coin != 0 || balance::value(&self.acc) != 0 || option::is_some(&self.metadata)){
+            return false
+        };
+        if(contains_locked(self)){
+            let locked_movescription = borrow_locked(self);
+            return is_zero(locked_movescription)
+        };
+        true
+    }
+
+    public fun destroy_zero(self: Movescription) {
+        assert!(self.amount == 0, ErrorNotZero);
+        assert!(self.attach_coin == 0, ErrorAttachDFExists);
+        assert!(balance::value(&self.acc) == 0, ErrorNotZero);
+        assert!(option::is_none(&self.metadata), ErrorNotZero);
+
+        if(contains_locked(&self)){
+            let locked_movescription = unlock_box(&mut self);
+            destroy_zero(locked_movescription);
+        };
+        let Movescription { id, amount: _, tick: _, attach_coin:_, acc, metadata:_ } = self;
+        balance::destroy_zero(acc);
+        object::delete(id);
+    }
 
     public fun do_burn_v2(
         tick_record: &mut TickRecordV2,

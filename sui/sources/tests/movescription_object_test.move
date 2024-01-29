@@ -193,6 +193,42 @@ module smartinscription::movescription_object_test{
         movescription::drop_movescription_for_testing(move_ms1);
     }
 
+    #[test]
+    fun test_zero(){
+        let ctx = tx_context::dummy();
+        let tick = string(b"MOVE");
+        let tick_record = movescription::new_tick_record_for_testing(tick, 10000, 1000, true, WITNESS{}, &mut ctx);
+        let zero_1 = movescription::zero(&tick_record, &mut ctx);
+        let zero_2 = movescription::zero(&tick_record, &mut ctx);
+        movescription::do_merge(&mut zero_1, zero_2);
+        assert!(movescription::is_zero(&zero_1), 1);
+        movescription::destroy_zero(zero_1);
+        movescription::drop_tick_record_for_testing(tick_record);
+    }
+
+    #[test]
+    fun test_burn_by_witness(){
+        let ctx = tx_context::dummy();
+        let tick = string(b"TICK");
+        let tick_record = movescription::new_tick_record_for_testing(tick, 10000, 1000, false, WITNESS{}, &mut ctx);
+        let tick_movescription = movescription::do_mint_with_witness(&mut tick_record, balance::zero<SUI>(), 1, option::none(), WITNESS{}, &mut ctx);
+        let (locked_sui, locked_movescription) = movescription::do_burn_with_witness(&mut tick_record, tick_movescription, b"msg", WITNESS{},&mut ctx);
+        coin::destroy_zero(locked_sui);
+        option::destroy_none(locked_movescription);
+        movescription::drop_tick_record_for_testing(tick_record);
+    }
+
+    #[test]
+    #[expected_failure]
+    fun test_burn_failure(){
+        let ctx = tx_context::dummy();
+        let tick = string(b"TICK");
+        let tick_record = movescription::new_tick_record_for_testing(tick, 10000, 1000, false, WITNESS{}, &mut ctx);
+        let tick_movescription = movescription::do_mint_with_witness(&mut tick_record, balance::zero<SUI>(), 1, option::none(), WITNESS{}, &mut ctx);
+        movescription::burn_v2(&mut tick_record, tick_movescription, &mut ctx);
+        movescription::drop_tick_record_for_testing(tick_record);
+    }
+
     #[test_only]
     fun new_test_movescription(tick: String, amount: u64, acc: u64, ctx: &mut TxContext) : Movescription{
         let acc_balance = balance::create_for_testing<SUI>(acc); 
