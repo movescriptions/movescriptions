@@ -31,8 +31,8 @@ module smartinscription::tick_factory {
     struct TickFactory has store{
         /// Tick name -> tick mint time
         tick_names: Table<String, u64>,
-        /// The total deploy fee, it is MOVE movescription.
-        total_deploy_fee: Option<Movescription>,
+        /// The total tick fee, it is MOVE movescription.
+        total_tick_fee: Option<Movescription>,
     }
     
     #[lint_allow(share_owned)]
@@ -44,9 +44,8 @@ module smartinscription::tick_factory {
         let tick_record = movescription::internal_deploy_with_witness(deploy_record, ascii::string(tick()), TOTAL_SUPPLY, false, WITNESS{}, ctx);
         let tick_factory = TickFactory{
             tick_names: table::new(ctx),
-            total_deploy_fee: option::none(),
+            total_tick_fee: option::none(),
         };
-        //TODO migrate the deployed tick names to the new tick factory
         movescription::tick_record_add_df(&mut tick_record, tick_factory, WITNESS{});
         transfer::public_share_object(tick_record);
     }
@@ -59,29 +58,21 @@ module smartinscription::tick_factory {
         total_supply: u64,
         burnable: bool,
         _witness: W,
-        clock: &Clock,
+        clk: &Clock,
         ctx: &mut TxContext
     ) : TickRecordV2 {
         assert_util::assert_tick_tick(&tick_name_movescription);
-        let (tick_name, timestamp_ms, _miner) = decode_metadata(&tick_name_movescription);
-        let new_tick_record = movescription::internal_deploy_with_witness(deploy_record, tick_name, total_supply, burnable, _witness, ctx);
-        let (coin, locked_movescription) = internal_burn(tick_tick_record, tick_name_movescription, tick_name, ctx);
-        let now = clock::timestamp_ms(clock);
-        let fee = calculate_deploy_fee(tick_name, timestamp_ms, now);
-        let tick_factory = movescription::tick_record_borrow_mut_df<TickFactory, WITNESS>(tick_tick_record, WITNESS{});
+        let (tick_name, coin, locked_move) = internal_burn(tick_tick_record, tick_name_movescription, clk, ctx);
         
-        transfer::public_transfer(coin, tx_context::sender(ctx));
-        if(option::is_some(&locked_movescription)){
-            let locked_movescription = option::destroy_some(locked_movescription);
-            let fee_move = util::split_and_give_back(locked_movescription, fee, ctx);
-            if(option::is_some(&tick_factory.total_deploy_fee)){
-                let total_deploy_fee = option::borrow_mut(&mut tick_factory.total_deploy_fee);
-                movescription::do_merge(total_deploy_fee, fee_move);
-            }else{
-                option::fill(&mut tick_factory.total_deploy_fee, fee_move);
-            }
+        let new_tick_record = movescription::internal_deploy_with_witness(deploy_record, tick_name, total_supply, burnable, _witness, ctx);
+        
+        let sender = tx_context::sender(ctx);
+        transfer::public_transfer(coin, sender);
+        if(option::is_some(&locked_move)){
+            let locked_move = option::destroy_some(locked_move);
+            transfer::public_transfer(locked_move, sender)
         }else{
-            option::destroy_none(locked_movescription);
+            option::destroy_none(locked_move);
         };
         new_tick_record
     }
@@ -125,19 +116,19 @@ module smartinscription::tick_factory {
     }
 
 
-    public fun do_burn(tick_record: &mut TickRecordV2, movescription: Movescription, ctx: &mut TxContext) :(Coin<SUI>, Option<Movescription>) {
+    public fun do_burn(tick_record: &mut TickRecordV2, movescription: Movescription, clk: &Clock, ctx: &mut TxContext) :(Coin<SUI>, Option<Movescription>) {
         assert!(movescription::check_tick_record(tick_record, tick()), ErrorInvalidTickRecord);
         assert_util::assert_tick_tick(&movescription);
-        let (tick_name, _timestamp_ms, _miner) = decode_metadata(&movescription);
+        let (tick_name, locked_sui, locked_move) = internal_burn(tick_record, movescription, clk, ctx);
         // recycle the tick name when burn.
         let tick_factory = movescription::tick_record_borrow_mut_df<TickFactory, WITNESS>(tick_record, WITNESS{});
         table::remove(&mut tick_factory.tick_names, tick_name);
-        internal_burn(tick_record, movescription, tick_name, ctx)
+        (locked_sui, locked_move) 
     }
 
     #[lint_allow(self_transfer)]
-    public entry fun burn(tick_record: &mut TickRecordV2,movescription: Movescription, ctx: &mut TxContext){
-        let (coin, ms) = do_burn(tick_record, movescription, ctx);
+    public entry fun burn(tick_record: &mut TickRecordV2,movescription: Movescription, clk: &Clock, ctx: &mut TxContext){
+        let (coin, ms) = do_burn(tick_record, movescription, clk, ctx);
         if(coin::value(&coin) == 0){
             coin::destroy_zero(coin);
         }else{
@@ -172,8 +163,47 @@ module smartinscription::tick_factory {
         (ascii::string(text), timestamp_ms, miner)
     }
 
-    fun internal_burn(tick_record: &mut TickRecordV2, movescription: Movescription, tick_name: String, ctx: &mut TxContext) :(Coin<SUI>, Option<Movescription>) {
-        movescription::do_burn_with_witness(tick_record, movescription, ascii::into_bytes(tick_name), WITNESS{}, ctx)
+    fun internal_burn(tick_record: &mut TickRecordV2, movescription: Movescription, clk: &Clock, ctx: &mut TxContext) :(String, Coin<SUI>, Option<Movescription>) {
+        let (tick_name, timestamp_ms, _miner) = decode_metadata(&movescription);
+        let (locked_sui, locked_move) = movescription::do_burn_with_witness(tick_record, movescription, ascii::into_bytes(tick_name), WITNESS{}, ctx); 
+        let tick_factory = movescription::tick_record_borrow_mut_df<TickFactory, WITNESS>(tick_record, WITNESS{});
+        let remain = charge_fee(tick_factory, tick_name, timestamp_ms, locked_move, clk, ctx);
+        (tick_name, locked_sui, remain) 
+    }
+
+    fun charge_fee(tick_factory: &mut TickFactory, tick_name: String, timestamp_ms: u64, locked_move: Option<Movescription>, clk: &Clock, ctx: &mut TxContext) : Option<Movescription> {
+        let now = clock::timestamp_ms(clk);
+        let fee = calculate_tick_fee(tick_name, timestamp_ms, now);
+        if(option::is_some(&locked_move)){
+            let locked_move = option::destroy_some(locked_move);
+            let (fee_move, remain) = util::split_and_return_remain(locked_move, fee, ctx);
+            if(option::is_some(&tick_factory.total_tick_fee)){
+                let total_tick_fee = option::borrow_mut(&mut tick_factory.total_tick_fee);
+                movescription::do_merge(total_tick_fee, fee_move);
+            }else{
+                option::fill(&mut tick_factory.total_tick_fee, fee_move);
+            };
+            remain
+        }else{
+            locked_move
+        }
+    }
+
+    // ===== TickFactory functions =====
+
+    public fun tick_names(tick_tick_record: &TickRecordV2) : &Table<String, u64> {
+        let tick_factory = movescription::tick_record_borrow_df<TickFactory>(tick_tick_record);
+        &tick_factory.tick_names
+    }
+
+    public fun total_tick_fee(tick_tick_record: &TickRecordV2) : u64 {
+        let tick_factory = movescription::tick_record_borrow_df<TickFactory>(tick_tick_record);
+        if(option::is_none(&tick_factory.total_tick_fee)){
+            0
+        }else{
+            let ms = option::borrow(&tick_factory.total_tick_fee);
+            movescription::amount(ms)
+        }
     }
 
     // ===== Constants functions =====
@@ -186,7 +216,7 @@ module smartinscription::tick_factory {
         INIT_LOCKED_MOVE
     }
 
-    public fun calculate_deploy_fee(tick: String, mint_time: u64, now: u64): u64 {
+    public fun calculate_tick_fee(tick: String, mint_time: u64, now: u64): u64 {
         let tick_len: u64 = ascii::length(&tick);
         let tick_len_fee =  BASE_TICK_LENGTH_FEE * tick_name::min_tick_length()/tick_len;
         let time_fee = (now - mint_time)/HOUR_MS * TICK_TIME_FEE_PER_HOUR;
@@ -206,16 +236,16 @@ module smartinscription::tick_factory {
     }
 
      #[test]
-    fun test_calculate_deploy_fee(){
-        let fee = calculate_deploy_fee(ascii::string(b"MOVE"), 0, 0);
+    fun test_calculate_tick_fee(){
+        let fee = calculate_tick_fee(ascii::string(b"MOVE"), 0, 0);
         assert!(fee == 1000, 0);
-        let fee = calculate_deploy_fee(ascii::string(b"MOVER"), 0, 0);
+        let fee = calculate_tick_fee(ascii::string(b"MOVER"), 0, 0);
         assert!(fee == 800, 0);
-        let fee = calculate_deploy_fee(ascii::string(b"MMMMMMMMMMMMMMMMMMMMMMMMMMMMOVER"), 0, 0);
+        let fee = calculate_tick_fee(ascii::string(b"MMMMMMMMMMMMMMMMMMMMMMMMMMMMOVER"), 0, 0);
         assert!(fee == 125, 0);
-        let fee = calculate_deploy_fee(ascii::string(b"MOVE"), 0, HOUR_MS*24*365);
+        let fee = calculate_tick_fee(ascii::string(b"MOVE"), 0, HOUR_MS*24*365);
         assert!(fee == 9760, 0);
-        let fee = calculate_deploy_fee(ascii::string(b"MOVE"), 0, HOUR_MS*24*365*2);
+        let fee = calculate_tick_fee(ascii::string(b"MOVE"), 0, HOUR_MS*24*365*2);
         assert!(fee == INIT_LOCKED_MOVE, 0);
     }
 }
