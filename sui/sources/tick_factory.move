@@ -237,7 +237,7 @@ module smartinscription::tick_factory {
         movescription::new_movescription_for_testing(1, ascii::string(tick()), sui::balance::zero<SUI>(), option::some(metadata), ctx)
     }
 
-     #[test]
+    #[test]
     fun test_calculate_tick_fee(){
         let fee = calculate_tick_fee(ascii::string(b"MOVE"), 0, 0);
         assert!(fee == 1000, 0);

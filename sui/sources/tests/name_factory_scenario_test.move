@@ -21,12 +21,13 @@ module smartinscription::name_factory_scenario_test{
         let sender = @0xABBA;
         let test_name = b"alice";
         let test_name2 = b"bob1";
+        let test_name2_upper = b"BOB1";
      
         let scenario_val = test_scenario::begin(sender);
         let scenario = &mut scenario_val;
 
 
-        let (clock, deploy_record, tick_tick_record, move_tick_record) = scenario_test::init_for_testing(scenario);
+        let (clk, deploy_record, tick_tick_record, move_tick_record) = scenario_test::init_for_testing(scenario);
 
         test_scenario::next_tx(scenario, sender);
 
@@ -40,7 +41,7 @@ module smartinscription::name_factory_scenario_test{
         {
             //Mint the NAME movescription, register the test_name
             let locked_move = epoch_bus_factory::mint_for_testing(&mut move_tick_record, name_factory::init_locked_move(), balance::zero(), test_scenario::ctx(scenario));
-            let name_movescription = name_factory::do_mint(&mut name_tick_record, locked_move, test_name, &clock, test_scenario::ctx(scenario)); 
+            let name_movescription = name_factory::do_mint(&mut name_tick_record, locked_move, test_name, &clk, test_scenario::ctx(scenario)); 
         
             assert!(movescription::amount(&name_movescription) == 1, 1);
             //std::debug::print(&name_movescription);
@@ -60,17 +61,26 @@ module smartinscription::name_factory_scenario_test{
         {
             //Mint a NAME movescription, register test_name2 
             let locked_move = epoch_bus_factory::mint_for_testing(&mut move_tick_record, name_factory::init_locked_move(), balance::zero(), test_scenario::ctx(scenario));
-            let test_name2_movescription = name_factory::do_mint(&mut name_tick_record, locked_move, test_name2, &clock, test_scenario::ctx(scenario)); 
+            let test_name2_movescription = name_factory::do_mint(&mut name_tick_record, locked_move, test_name2_upper, &clk, test_scenario::ctx(scenario)); 
 
             assert!(!name_factory::is_name_available(&name_tick_record, test_name2), 7);
+            assert!(!name_factory::is_name_available(&name_tick_record, test_name2_upper), 7);
+
+            let metadata = option::destroy_some(movescription::metadata(&test_name2_movescription));
+            let name_metadata = metadata::decode_text_metadata(&metadata);
+            assert!(metadata::text_metadata_text(&name_metadata) == &test_name2, 5);
+
             test_scenario::next_tx(scenario, sender);
-            name_factory::burn(&mut name_tick_record, test_name2_movescription,test_scenario::ctx(scenario));
-            assert!(name_factory::is_name_available(&name_tick_record, test_name2), 8);
+            let before_total_name_fee = name_factory::total_name_fee(&name_tick_record);
+            name_factory::burn(&mut name_tick_record, test_name2_movescription, &clk, test_scenario::ctx(scenario));
+            let after_total_name_fee = name_factory::total_name_fee(&name_tick_record);
+            assert!(after_total_name_fee > before_total_name_fee , 8);
+            assert!(name_factory::is_name_available(&name_tick_record, test_name2), 9);
         };
 
         test_scenario::return_shared(name_tick_record);
 
-        clock::destroy_for_testing(clock);
+        clock::destroy_for_testing(clk);
         test_scenario::return_shared(deploy_record);
         test_scenario::return_shared(tick_tick_record);
         test_scenario::return_shared(move_tick_record);
