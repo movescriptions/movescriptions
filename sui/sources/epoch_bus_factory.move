@@ -87,7 +87,7 @@ module smartinscription::epoch_bus_factory{
         epoch_count: u64, 
         clock: &Clock,
         ctx: &mut TxContext) {
-       do_deploy(deploy_record, tick_tick_record, tick_name, total_supply, init_locked_sui, start_time_ms, epoch_count, clock, ctx);
+        do_deploy(deploy_record, tick_tick_record, tick_name, total_supply, init_locked_sui, start_time_ms, epoch_count, clock, ctx);
     }
     
     /// Deploy the `tick_name` movescription by epoch_bus_factory
