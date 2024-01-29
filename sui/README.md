@@ -49,6 +49,10 @@
 * NAME TickRecordV2: 0x74517f29b69b6d76bf3973b4accfa4877039bdd2e61498519578fea3150361ae
 * TEST TickRecordV2: 0x32686d88492bf01ac6468d0eeab25dfd10ce08a8cbb151c065d4e4ca8ef715f9
 
+### v3.1.1
+* DeployTx: 6pv6sR6nTwiU79vYW9aAPpCaaK1FErAvSi3GTmtg1Q3M
+* PackageID: 0xc21b5beab1036cf45741055d507cf64f4cfaa65415d73e030f9b251307624bed
+
 #### Migration
 * Migrate MOVE TickRecord to v2
 ```bash
