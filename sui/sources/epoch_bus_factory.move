@@ -203,14 +203,19 @@ module smartinscription::epoch_bus_factory{
         let tick = movescription::tick_record_v2_tick(tick_record);
         let factory = movescription::tick_record_remove_df<EpochBusFactory, WITNESS>(tick_record, WITNESS{});
         let epoch_amount: u64 = factory.epoch_amount;
-        let epoch_record: &mut EpochRecord = table::borrow_mut(&mut factory.epoch_records, epoch);
+        let epoch_record: EpochRecord = table::remove(&mut factory.epoch_records, epoch);
+        let EpochRecord {
+            epoch,
+            start_time_ms:_,
+            players,
+            locked_sui,
+        } = epoch_record;
         
         // include the remainder to the last epoch
         if (epoch_amount * 2 > remain) {
             epoch_amount = remain;
         };
         let epoch_supply = 0;
-        let players = epoch_record.players;
         let idx = 0;
         let players_len = vector::length(&players);
         
@@ -220,7 +225,7 @@ module smartinscription::epoch_bus_factory{
         };
         while (idx < players_len) {
             let player = *vector::borrow(&players, idx);
-            let acc_balance: Balance<SUI> = table::remove(&mut epoch_record.locked_sui, player);
+            let acc_balance: Balance<SUI> = table::remove(&mut locked_sui, player);
             if (remain > 0) {
                 let ins: Movescription = internal_mint(tick_record, per_player_amount, acc_balance, ctx);
                 transfer::public_transfer(ins, player);
@@ -241,9 +246,8 @@ module smartinscription::epoch_bus_factory{
             remain = remain - remainder;
             epoch_supply = epoch_supply + remainder;
         };
-        // The locked_sui should be empty, this should not happen, add assert for debug
-        // We can remove this assert after we are sure there is no bug
-        assert!(table::is_empty(&epoch_record.locked_sui), 0);
+        // The locked_sui should be empty after settlement
+        table::destroy_empty(locked_sui);
 
         emit(SettleEpochEvent {
             tick,
@@ -308,11 +312,13 @@ module smartinscription::epoch_bus_factory{
         }else{
             let new_epoch_records = table::new(ctx);
             let epoch = 0;
-            while(epoch <= current_epoch){
-                let epoch_record = migrate_epoch_record(table::remove(&mut epoch_records, epoch));
-                table::add(&mut new_epoch_records, epoch, epoch_record);
+            while(epoch < current_epoch){
+                let (_, _, _, mint_fees) = movescription::unwrap_epoch_record(table::remove(&mut epoch_records, epoch));
+                table::destroy_empty(mint_fees);
                 epoch = epoch + 1;
             };
+            let current_epoch_record = migrate_epoch_record(table::remove(&mut epoch_records, current_epoch));
+            table::add(&mut new_epoch_records, current_epoch, current_epoch_record);
             new_epoch_records
         };
         table::destroy_empty(epoch_records);
