@@ -21,10 +21,8 @@ module smartinscription::name_factory {
     const TOTAL_SUPPLY: u64 = 0xFFFFFFFFFFFFFFFF; // 18446744073709551615
     const INIT_LOCKED_MOVE: u64 = 1000;
 
-    
-    const ErrorInvalidTickRecord: u64 = 1;
-    const ErrorInvaidName: u64 = 2;
-    const ErrorNameNotAvailable: u64 = 3;
+    const ErrorInvaidName: u64 = 1;
+    const ErrorNameNotAvailable: u64 = 2;
     
     struct WITNESS has drop{}
 
@@ -39,65 +37,67 @@ module smartinscription::name_factory {
         if(movescription::is_deployed(deploy_record, tick())){
             return
         };
-        let tick_record = movescription::internal_deploy_with_witness(deploy_record, std::ascii::string(tick()), TOTAL_SUPPLY, false, WITNESS{}, ctx);
+        let name_tick_record = movescription::internal_deploy_with_witness(deploy_record, std::ascii::string(tick()), TOTAL_SUPPLY, false, WITNESS{}, ctx);
         let name_factory = NameFactory{
             names: table::new(ctx),
         };
-        movescription::tick_record_add_df(&mut tick_record, name_factory, WITNESS{});
-        transfer::public_share_object(tick_record);
+        movescription::tick_record_add_df(&mut name_tick_record, name_factory, WITNESS{});
+        transfer::public_share_object(name_tick_record);
     }
     
 
     #[lint_allow(self_transfer)]
     public entry fun mint(
-        tick_record: &mut TickRecordV2,
+        name_tick_record: &mut TickRecordV2,
         locked_move: Movescription,
         name: vector<u8>,
         clock: &Clock,
         ctx: &mut TxContext) {
-        let ms = do_mint(tick_record, locked_move, name, clock, ctx);
+        let ms = do_mint(name_tick_record, locked_move, name, clock, ctx);
         transfer::public_transfer(ms, tx_context::sender(ctx));
     }
 
     #[lint_allow(self_transfer)]
     public fun do_mint(
-        tick_record: &mut TickRecordV2,
+        name_tick_record: &mut TickRecordV2,
         locked_move: Movescription,
         name: vector<u8>,
         clock: &Clock,
         ctx: &mut TxContext) : Movescription {
-        assert!(movescription::check_tick_record(tick_record, tick()), ErrorInvalidTickRecord);
-        assert!(is_name_valid(name), ErrorInvaidName);
-        assert!(is_name_available(tick_record, name), ErrorNameNotAvailable);
+        assert_util::assert_tick_record(name_tick_record, tick());
         assert_util::assert_move_tick(&locked_move);
+        
+        assert!(is_name_valid(name), ErrorInvaidName);
+        assert!(is_name_available(name_tick_record, name), ErrorNameNotAvailable);
+        
         let init_locked_move = util::split_and_give_back(locked_move, INIT_LOCKED_MOVE, ctx);
         //ensure the name is lowercase
         string_util::to_lowercase(&mut name);
         let name_str = string::utf8(name);
-        let name_factory = movescription::tick_record_borrow_mut_df<NameFactory, WITNESS>(tick_record, WITNESS{});
+        let name_factory = movescription::tick_record_borrow_mut_df<NameFactory, WITNESS>(name_tick_record, WITNESS{});
         
         let now = clock::timestamp_ms(clock);
         table::add(&mut name_factory.names, name_str, now);
        
         let metadata = new_name_metadata(name_str, now, tx_context::sender(ctx));
-        let name_movescription = movescription::do_mint_with_witness(tick_record, balance::zero<SUI>(), 1, option::some(metadata), WITNESS{}, ctx);
+        let name_movescription = movescription::do_mint_with_witness(name_tick_record, balance::zero<SUI>(), 1, option::some(metadata), WITNESS{}, ctx);
         movescription::lock_within(&mut name_movescription, init_locked_move);
         name_movescription
     }
 
-    public fun do_burn(tick_record: &mut TickRecordV2, movescription: Movescription, ctx: &mut TxContext) :(Coin<SUI>, Option<Movescription>) {
-        assert!(movescription::check_tick_record(tick_record, tick()), ErrorInvalidTickRecord);
+    public fun do_burn(name_tick_record: &mut TickRecordV2, movescription: Movescription, ctx: &mut TxContext) :(Coin<SUI>, Option<Movescription>) {
+        assert_util::assert_tick_record(name_tick_record, tick());
         assert_util::assert_name_tick(&movescription);
         let (name, _timestamp_ms, _miner) = decode_metadata(&movescription);
         //recycle the name when burn.
-        let factory = movescription::tick_record_borrow_mut_df<NameFactory, WITNESS>(tick_record, WITNESS{});
+        let factory = movescription::tick_record_borrow_mut_df<NameFactory, WITNESS>(name_tick_record, WITNESS{});
         table::remove(&mut factory.names, name);
-        movescription::do_burn_with_witness(tick_record, movescription, *string::bytes(&name), WITNESS{}, ctx)
+        movescription::do_burn_with_witness(name_tick_record, movescription, *string::bytes(&name), WITNESS{}, ctx)
     }
 
     #[lint_allow(self_transfer)]
-    public entry fun burn(tick_record: &mut TickRecordV2,movescription: Movescription, ctx: &mut TxContext){
-        let (coin, ms) = do_burn(tick_record, movescription, ctx);
+    public entry fun burn(name_tick_record: &mut TickRecordV2,movescription: Movescription, ctx: &mut TxContext){
+        let (coin, ms) = do_burn(name_tick_record, movescription, ctx);
         if(coin::value(&coin) == 0){
             coin::destroy_zero(coin);
         }else{
@@ -117,7 +117,6 @@ module smartinscription::name_factory {
     }
 
     fun decode_metadata(name_movescription: &Movescription) : (String, u64, address) {
-        assert_util::assert_name_tick(name_movescription);
         let metadata = movescription::metadata(name_movescription);
         let metadata = option::destroy_some(metadata);
         let text_metadata = metadata::decode_text_metadata(&metadata);
@@ -130,10 +129,10 @@ module smartinscription::name_factory {
     }
     
     /// Check if the name is available, if it has bean minted, it is not available
-    public fun is_name_available(tick_record: &TickRecordV2, name: vector<u8>) : bool {
+    public fun is_name_available(name_tick_record: &TickRecordV2, name: vector<u8>) : bool {
         string_util::to_lowercase(&mut name);
         let name_str = string::utf8(name);
-        let name_factory = movescription::tick_record_borrow_df<NameFactory>(tick_record);
+        let name_factory = movescription::tick_record_borrow_df<NameFactory>(name_tick_record);
         !table::contains(&name_factory.names, name_str)
     }
 
