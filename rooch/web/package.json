@@ -22,7 +22,9 @@
     "next": "14.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "@roochnetwork/rooch-sdk": "./libs/roochnetwork-rooch-sdk-0.0.7.tgz",
+    "@roochnetwork/rooch-sdk-kit": "./libs/roochnetwork-rooch-sdk-kit-0.0.7.tgz"
   },
   "devDependencies": {
     "@playwright/test": "^1.41.1",

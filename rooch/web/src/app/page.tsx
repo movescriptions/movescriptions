@@ -27,10 +27,11 @@ export default function Home() {
         <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
           Demo
         </Typography>
+        
         <Link href="/assets" color="secondary" component={NextLink}>
           Go to assets page
         </Link>
-        <ProTip />
+
         <Copyright />
       </Box>
     </Container>
