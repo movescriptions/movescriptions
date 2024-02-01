@@ -99,12 +99,12 @@ module smartinscription::mint_get_factory {
         ctx: &mut TxContext) {
         let sender = tx_context::sender(ctx);
         let ms = do_mint_with_move(tick_record, locked_move,ctx);
-        transfer::public_transfer(ms, sender);
         emit(MintEvent {
             minter: sender,
             tick: movescription::tick_record_v2_tick(tick_record),
             amount: movescription::amount(&ms),
         });
+        transfer::public_transfer(ms, sender);
     }
 
     public fun do_mint_with_move(
@@ -126,12 +126,12 @@ module smartinscription::mint_get_factory {
         ctx: &mut TxContext) {
         let sender = tx_context::sender(ctx);
         let ms = do_mint_with_sui(tick_record, locked_sui, ctx);
-        transfer::public_transfer(ms, sender);
         emit(MintEvent {
             minter: sender,
             tick: movescription::tick_record_v2_tick(tick_record),
             amount: movescription::amount(&ms),
         });
+        transfer::public_transfer(ms, sender);
     }
 
     public fun do_mint_with_sui(
