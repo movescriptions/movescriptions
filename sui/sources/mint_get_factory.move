@@ -1,11 +1,13 @@
 module smartinscription::mint_get_factory {
     use std::option::{Self, Option};
+    use std::ascii::String;
     use sui::tx_context::{Self,TxContext};
     use sui::transfer;
     use sui::balance::{Self, Balance};
     use sui::sui::SUI;
     use sui::coin::{Self,Coin};
     use sui::clock::Clock;
+    use sui::event::emit;
     use smartinscription::movescription::{Self, DeployRecord, TickRecordV2, Movescription};
     use smartinscription::tick_name;
     use smartinscription::assert_util;
@@ -25,6 +27,12 @@ module smartinscription::mint_get_factory {
         amount_per_mint: u64, 
         init_locked_sui: u64, 
         init_locked_move: u64,
+    }
+
+    struct MintEvent has copy, drop {
+        minter: address,
+        tick: String,
+        amount: u64,
     }
 
     #[lint_allow(share_owned)]
@@ -89,8 +97,14 @@ module smartinscription::mint_get_factory {
         tick_record: &mut TickRecordV2,
         locked_move: Movescription,
         ctx: &mut TxContext) {
+        let sender = tx_context::sender(ctx);
         let ms = do_mint_with_move(tick_record, locked_move,ctx);
-        transfer::public_transfer(ms, tx_context::sender(ctx));
+        transfer::public_transfer(ms, sender);
+        emit(MintEvent {
+            minter: sender,
+            tick: movescription::tick_record_v2_tick(tick_record),
+            amount: movescription::amount(&ms),
+        });
     }
 
     public fun do_mint_with_move(
@@ -110,8 +124,14 @@ module smartinscription::mint_get_factory {
         tick_record: &mut TickRecordV2,
         locked_sui: Coin<SUI>,
         ctx: &mut TxContext) {
-        let ms = do_mint_with_sui(tick_record, locked_sui,ctx);
-        transfer::public_transfer(ms, tx_context::sender(ctx));
+        let sender = tx_context::sender(ctx);
+        let ms = do_mint_with_sui(tick_record, locked_sui, ctx);
+        transfer::public_transfer(ms, sender);
+        emit(MintEvent {
+            minter: sender,
+            tick: movescription::tick_record_v2_tick(tick_record),
+            amount: movescription::amount(&ms),
+        });
     }
 
     public fun do_mint_with_sui(
