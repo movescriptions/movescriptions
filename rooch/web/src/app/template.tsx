@@ -21,6 +21,7 @@ import MailIcon from '@mui/icons-material/Mail';
 import { AppBar}  from '@/components/AppBar';
 import { siteConfig } from '@/config/site';
 import { useRouter } from 'next/navigation';
+import ConnectButton from '@/components/ConnectButton';
 
 const drawerWidth = 240;
 
@@ -104,7 +105,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             {siteConfig.name}
           </Typography>
-          <Button color="inherit">Connect</Button>
+          <ConnectButton/>
         </Toolbar>
       </AppBar>
       <Drawer variant="permanent" open={open}>

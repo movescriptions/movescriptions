@@ -5,7 +5,6 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import NextLink from 'next/link';
-import ProTip from '@/components/ProTip';
 import Copyright from '@/components/Copyright';
 
 export const metadata: Metadata = {
@@ -27,7 +26,7 @@ export default function Home() {
         <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
           Demo
         </Typography>
-        
+
         <Link href="/assets" color="secondary" component={NextLink}>
           Go to assets page
         </Link>
