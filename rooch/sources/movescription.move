@@ -6,7 +6,8 @@ module movescriptions::movescription{
     use std::signer;
     use moveos_std::context::{Self, Context};
     use moveos_std::table::{Self, Table};
-    use moveos_std::object::{Self, Object, ObjectID};
+    use moveos_std::object::{Self, Object};
+    use moveos_std::object_id::{ObjectID};
     use rooch_framework::hash;
     use rooch_framework::account;
     use movescriptions::util;
