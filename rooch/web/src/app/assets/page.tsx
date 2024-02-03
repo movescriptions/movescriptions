@@ -6,10 +6,16 @@ import Box from '@mui/material/Box';
 import Copyright from '@/components/Copyright';
  
 import UserAssets from "@/components/UserAssets"
-import { useCurrentSessionAccount } from '@roochnetwork/rooch-sdk-kit'
+import { RoochMultiChainID } from '@roochnetwork/rooch-sdk'
+import { useWalletStore, WalletAccount, useResolveRoochAddress} from '@roochnetwork/rooch-sdk-kit'
 
 export default function MyAssets() {
-  const account = useCurrentSessionAccount()
+  const currentAccount = useWalletStore<WalletAccount | null>((store)=>store.currentAccount)
+
+  let roochAddress = useResolveRoochAddress(
+    currentAccount?.getAddress() ?? '',
+    RoochMultiChainID.Bitcoin,
+  )
 
   return (
     <Container maxWidth="lg">
@@ -26,8 +32,8 @@ export default function MyAssets() {
           MRC20 Assets
         </Typography>
 
-        {account ? (
-          <UserAssets address=''></UserAssets>
+        {roochAddress && roochAddress.data ? (
+          <UserAssets address={roochAddress.data}></UserAssets>
         ) : (
           <Typography>Please connect wallet to view assets.</Typography>
         )}

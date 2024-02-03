@@ -1,17 +1,20 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
+
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import { Card, CardContent, Grid } from '@mui/material';
-import Pagination from '@mui/material/Pagination';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Grid from '@mui/material/Grid';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
+import Button from '@mui/material/Button';
 
 import { Movescription } from '@/types'
 import { movescriptionConfig } from '@/config/movescription'
-import { GlobalStateFilterView } from '@roochnetwork/rooch-sdk'
-import { useRoochClientQuery } from '@roochnetwork/rooch-sdk-kit'
+import { IndexerStateID, GlobalStateFilterView } from '@roochnetwork/rooch-sdk'
+import { useRoochClient } from '@roochnetwork/rooch-sdk-kit'
 
 const itemsPerPage = 20;
 
@@ -20,71 +23,67 @@ export type UserAssetsProps = {
 }
 
 export default function UserAssets(props: UserAssetsProps) {
-  const [page, setPage] = useState<number>(1);
+  const [error, setError] = useState<Error | null>(null);
+  const [isPending, setPending] = useState<boolean>(false);
   const [items, setItems] = useState<Array<Movescription>>([]);
-  const handleChange = (event: any, value: number) => {
-    setPage(value);
-  };
 
-  const [filter, setFilter] = useState<GlobalStateFilterView>({
+  const filter: GlobalStateFilterView = {
     object_type_with_owner: {
       object_type: `${movescriptionConfig.movescriptionAddress}::movescription::Movescription`,
       owner: props.address,
     }
-  });
-  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 })
-  const mapPageToNextCursor = useRef<{ [page: number]: string | null }>({})
+  };
+  const [nextCursor, setNextCursor] = useState<IndexerStateID | null>(null);
+  const [hasMore, setHasMore] = useState<boolean>(true);
 
-  const queryOptions = useMemo(
-    () => ({
-      cursor: mapPageToNextCursor.current[paginationModel.page - 1],
-      pageSize: paginationModel.pageSize,
-    }),
-    [paginationModel],
-  )
+  const roochClient = useRoochClient()
 
-  let { data, isPending, error } = useRoochClientQuery(
-    'queryGlobalStates',
-    {
-      filter: filter,
-      cursor: queryOptions.cursor,
-      limit: paginationModel.pageSize,
-    },
-    {
-      enabled: true,
-    },
-  )
+  const handleLoadMore = async () => {
+    setPending(true);
+
+    console.log("handleLoadMore filter:", filter);
+
+    try {
+      const newData = await roochClient.queryGlobalStates({
+        filter: filter,
+        cursor: nextCursor,
+        limit: itemsPerPage,
+      })
+
+      console.log("handleLoadMore result:", newData);
+
+      const newItems = new Array<Movescription>();
+      for (const state of newData.data) {
+        items.push({
+          object_id: `${state.object_id}`,
+          tick: "MOVE",
+          value: 925,
+        })
+      }
+
+      setItems([...items, ...newItems]);
+      setNextCursor(newData.next_cursor);
+      setHasMore(newData.has_next_page);
+    } catch (e: any) {
+      console.error(e)
+      setError(e)
+
+      setTimeout(()=>{
+        setError(null)
+      }, 6000)
+    } finally {
+      setPending(false)
+    }
+  };
 
   useEffect(() => {
-    if (!data) {
-      return
-    }
-
-    let items = new Array<Movescription>();
-
-    for (const state of data.data) {
-      items.push({
-        object_id: `${state.object_id}`,
-        tick: "MOVE",
-        value: 925,
-      })
-    }
-
-    setItems(items);
+    handleLoadMore()
   }, [])
 
   return (
     <Box sx={{ maxWidth: 'lg' }}>
-      <Snackbar open={error != null} autoHideDuration={6000}>
-        <Alert severity="error">
-          {error?.message}
-        </Alert>
-      </Snackbar>
-      {isPending ? (
-        <CircularProgress></CircularProgress>
-      ) : (
-        <Grid container spacing={2}>
-          {items.slice((page - 1) * itemsPerPage, page * itemsPerPage).map((item) => (
+      <Grid container spacing={2}>
+        {items.length>0 ? items.map((item) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={item.object_id}>
               <Card style={{ width: '100%', height: '120px' }}>
                 <CardContent>
@@ -97,10 +96,24 @@ export default function UserAssets(props: UserAssetsProps) {
                 </CardContent>
               </Card>
             </Grid>
-          ))}
-        </Grid>
+        )):(
+          <Typography>No Inscription</Typography>
+        )}
+      </Grid>
+
+      {isPending && (
+        <CircularProgress></CircularProgress>
       )}
-      <Pagination count={Math.ceil(items.length / itemsPerPage)} page={page} onChange={handleChange} />
+
+      <Snackbar open={error != null} autoHideDuration={6000}>
+        <Alert severity="error">
+          {error?.message}
+        </Alert>
+      </Snackbar>
+
+      {hasMore && (
+        <Button onClick={handleLoadMore}>Load More</Button>
+      )}
     </Box>
   );
 }
