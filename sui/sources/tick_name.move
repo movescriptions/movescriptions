@@ -1,3 +1,4 @@
+#[allow(implicit_const_copy)]
 module smartinscription::tick_name{
     use std::ascii;
     use std::vector;

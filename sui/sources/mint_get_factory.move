@@ -1,13 +1,11 @@
 module smartinscription::mint_get_factory {
     use std::option::{Self, Option};
-    use std::ascii::String;
     use sui::tx_context::{Self,TxContext};
     use sui::transfer;
     use sui::balance::{Self, Balance};
     use sui::sui::SUI;
     use sui::coin::{Self,Coin};
     use sui::clock::Clock;
-    use sui::event::emit;
     use smartinscription::movescription::{Self, DeployRecord, TickRecordV2, Movescription};
     use smartinscription::tick_name;
     use smartinscription::assert_util;
@@ -27,12 +25,6 @@ module smartinscription::mint_get_factory {
         amount_per_mint: u64, 
         init_locked_sui: u64, 
         init_locked_move: u64,
-    }
-
-    struct MintEvent has copy, drop {
-        minter: address,
-        tick: String,
-        amount: u64,
     }
 
     #[lint_allow(share_owned)]
@@ -99,11 +91,6 @@ module smartinscription::mint_get_factory {
         ctx: &mut TxContext) {
         let sender = tx_context::sender(ctx);
         let ms = do_mint_with_move(tick_record, locked_move,ctx);
-        emit(MintEvent {
-            minter: sender,
-            tick: movescription::tick_record_v2_tick(tick_record),
-            amount: movescription::amount(&ms),
-        });
         transfer::public_transfer(ms, sender);
     }
 
@@ -126,11 +113,6 @@ module smartinscription::mint_get_factory {
         ctx: &mut TxContext) {
         let sender = tx_context::sender(ctx);
         let ms = do_mint_with_sui(tick_record, locked_sui, ctx);
-        emit(MintEvent {
-            minter: sender,
-            tick: movescription::tick_record_v2_tick(tick_record),
-            amount: movescription::amount(&ms),
-        });
         transfer::public_transfer(ms, sender);
     }
 

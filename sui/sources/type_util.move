@@ -1,3 +1,4 @@
+#[allow(implicit_const_copy)]
 module smartinscription::type_util{
     use std::type_name;
     use std::vector;

@@ -121,9 +121,11 @@ module smartinscription::movescription {
         burnable: bool,
     }
 
-    struct MintTick has copy, drop {
+    struct MintTickV2 has copy, drop {
+        id: ID, 
         sender: address,
         tick: String,
+        amount: u64, 
     }
 
     struct BurnTick has copy, drop {
@@ -252,11 +254,14 @@ module smartinscription::movescription {
 
         let tick: String = tick_record.tick;
         let sender = tx_context::sender(ctx);
-        emit(MintTick{
+        let movescription = new_movescription(amount, tick, init_locked_sui, metadata, ctx);
+        emit(MintTickV2 {
+            id: object::id(&movescription),
             sender,
-            tick, 
+            tick,
+            amount,
         });
-        new_movescription(amount, tick, init_locked_sui, metadata, ctx)
+        movescription
     }
 
     // ======= Merge functions ========
@@ -913,6 +918,12 @@ module smartinscription::movescription {
         settle_time_ms: u64,
         palyers_count: u64,
         epoch_amount: u64,
+    }
+
+    #[allow(unused_field)]
+    struct MintTick has copy, drop {
+        sender: address,
+        tick: String,
     }
 
     #[lint_allow(self_transfer)]

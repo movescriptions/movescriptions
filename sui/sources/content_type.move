@@ -1,3 +1,4 @@
+#[allow(implicit_const_copy)]
 module smartinscription::content_type{
     use std::string::{Self, String};
     use std::option::{Self, Option};
