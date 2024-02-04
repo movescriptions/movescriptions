@@ -28,11 +28,41 @@
 
 ### Types & Objects:
 
-* Movescription: 0xde652a9bbdf6e34c39d3bb758e9010437ddacf8b5b03dae68e400034a03970e3::movescription::Movescription
-* DeployRecord: 0xeba12b9746cc08556137a66cd18b5edcdb05baffa8ada6b0a3a44c22c59fa205
-* MOVE TickRecord: 0x16d649213586580b1c40bb3217dd0883908fe2e3b1a4b2c8b4abffbc2178e176
+* Movescription: 0x757a3250eaaa0ab7f2873f70e496688e35b27928a2d4a31bec996a9f35ba8686::movescription::Movescription
+* DeployRecord: 0xa08c9f35d7b4ec428db8d2a6abb1f536ffba04222e79ad77b64d95a10a68a80c
+* MOVE TickRecord: 0x532c825d547106ec2b1f11ec7688bcc733b68554b05077d80dfa7b1bafe5f0f4
+* UpgradeCap: 0x50969f8edba7302e1c9075b01f53685c14c925b1ade781e99503aa442e685914
+* Publisher: 0x482758bc510a08322f73c5967ded6fd32ad44d89c391c17e5ed56b0e96bbe7a7
 
 ### v3
 
-* DeployTx: A9oz61bgG5YP6t1cgULhDiaoJvTUaJ3rVkpN3w7Yf4aD
-* PackageID: 0xde652a9bbdf6e34c39d3bb758e9010437ddacf8b5b03dae68e400034a03970e3
+* DeployTx: ExB7SJGhnKCksFj4sNfGq2mcRDBoGLmnbc6htMk51tuH
+* PackageID: 0x757a3250eaaa0ab7f2873f70e496688e35b27928a2d4a31bec996a9f35ba8686
+
+### v3.1
+
+* DeployTx: GFnX4z2GMnjNq7TaGHKDx4P1MM8eg9bo2trW4zXVjkdh
+* PackageID: 0x5672d94180fc1199bb658b74087578708c2426ff3dd88b7d9203422015c44875
+* TickRecordV2 type: 0x5672d94180fc1199bb658b74087578708c2426ff3dd88b7d9203422015c44875::movescription::TickRecordV2
+* MOVE TickRecordV2: 0x3b4b5fac644ec42e40b9f8a523d9bd93731b63629ba31c40658eb09a99c4174a
+* TICK TickRecordV2: 0x0c67c7fdd69d7bb3e1e14b35fd253e12c7f8376eb2489c9a9e27759180c16ab7
+* NAME TickRecordV2: 0x74517f29b69b6d76bf3973b4accfa4877039bdd2e61498519578fea3150361ae
+* TEST TickRecordV2: 0x32686d88492bf01ac6468d0eeab25dfd10ce08a8cbb151c065d4e4ca8ef715f9
+
+### v3.1.1
+* DeployTx: 6pv6sR6nTwiU79vYW9aAPpCaaK1FErAvSi3GTmtg1Q3M
+* PackageID: 0xc21b5beab1036cf45741055d507cf64f4cfaa65415d73e030f9b251307624bed
+
+### v3.1.2
+* DeployTx: 9R1Vv8koXWCvJYJQ6hUwRJGHNuVJM1Vi2eXVHmZJqXo1
+* PackageID: 0xb92d2976a8881e273578a7e0490350c9946233ba68d7a6ca5e9d05d5223ac357
+
+#### Migration
+* Migrate MOVE TickRecord to v2
+```bash
+sui client call --package 0x5672d94180fc1199bb658b74087578708c2426ff3dd88b7d9203422015c44875 --module epoch_bus_factory --function migrate_tick_record_to_v2 --gas-budget 1000000000 --args 0xa08c9f35d7b4ec428db8d2a6abb1f536ffba04222e79ad77b64d95a10a68a80c --args 0x532c825d547106ec2b1f11ec7688bcc733b68554b05077d80dfa7b1bafe5f0f4
+```
+* Init protocol deploy TICK, NAME and TEST
+```bash
+sui client call --package 0x5672d94180fc1199bb658b74087578708c2426ff3dd88b7d9203422015c44875 --module init --function init_protocol --gas-budget 1000000000 --args 0xa08c9f35d7b4ec428db8d2a6abb1f536ffba04222e79ad77b64d95a10a68a80c
+```

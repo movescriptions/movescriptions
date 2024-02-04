@@ -1,35 +1,23 @@
 #[test_only]
 module smartinscription::movescription_object_test{
-
+    use std::ascii::{string, String};
     use std::option;
     use sui::sui::SUI;
-    use sui::tx_context;
+    use sui::coin;
+    use sui::tx_context::{Self, TxContext};
     use sui::balance;
-    //use sui::coin::{Self, Coin};
-    use smartinscription::movescription;
+    use smartinscription::movescription::{Self, Movescription};
 
+    #[test_only]
+    struct WITNESS has drop {}
+
+    
     #[test]
-    fun test_calculate_deploy_fee(){
-        let fee = movescription::calculate_deploy_fee(b"MOVE", movescription::base_epoch_count());
-        assert!(fee == 1100, 0);
-        let fee = movescription::calculate_deploy_fee(b"MOVER", movescription::base_epoch_count());
-        assert!(fee == 900, 0);
-        let fee = movescription::calculate_deploy_fee(b"MMMMMMMMMMMMMMMMMMMMMMMMMMMMOVER", movescription::base_epoch_count());
-        assert!(fee == 225, 0);
-        let fee = movescription::calculate_deploy_fee(b"MOVE", 60*24);
-        //std::debug::print(&fee);
-        assert!(fee == 2500, 0);
-        let fee = movescription::calculate_deploy_fee(b"MOVE", movescription::min_epochs());
-        assert!(fee == 19000, 0); 
-        //std::debug::print(&fee);
-    }
-
-     #[test]
     fun test_split_acc(){
         let acc_balance = balance::create_for_testing<SUI>(1000u64);
         let split_amount = 100u64;
         let inscription_amount = 1000u64;
-        let tick = std::ascii::string(b"MOVE");
+        let tick = string(b"MOVE");
         let tx_context = tx_context::dummy();
         let ms = movescription::new_movescription_for_testing(inscription_amount, tick, acc_balance, option::none(), &mut tx_context);
         let new_ms = movescription::do_split(&mut ms, split_amount, &mut tx_context);
@@ -44,7 +32,7 @@ module smartinscription::movescription_object_test{
         let acc_balance = balance::create_for_testing<SUI>(4_0000_0000u64);
         let split_amount = 1111_1111u64;
         let inscription_amount = 9999_9999u64;
-        let tick = std::ascii::string(b"MOVE");
+        let tick = string(b"MOVE");
         let tx_context = tx_context::dummy();
         let ms = movescription::new_movescription_for_testing(inscription_amount, tick, acc_balance, option::none(), &mut tx_context);
         let new_ms = movescription::do_split(&mut ms, split_amount, &mut tx_context);
@@ -59,7 +47,7 @@ module smartinscription::movescription_object_test{
         let acc_balance = balance::create_for_testing<SUI>(100u64);
         let split_amount = 1u64;
         let inscription_amount = 100_0000u64;
-        let tick = std::ascii::string(b"MOVE");
+        let tick = string(b"MOVE");
         let tx_context = tx_context::dummy();
         let ms = movescription::new_movescription_for_testing(inscription_amount, tick, acc_balance, option::none(), &mut tx_context);
         let new_ms = movescription::do_split(&mut ms, split_amount, &mut tx_context);
@@ -72,7 +60,7 @@ module smartinscription::movescription_object_test{
 
     #[test]
     fun test_merge(){
-        let tick = std::ascii::string(b"MOVE");
+        let tick = string(b"MOVE");
         let tx_context = tx_context::dummy();
         let first_acc_balance = balance::create_for_testing<SUI>(50u64);
         let first_amount = 100u64;
@@ -93,8 +81,8 @@ module smartinscription::movescription_object_test{
     #[test]
     #[expected_failure]
     fun test_merge_different_movescription_failed(){
-        let tick1 = std::ascii::string(b"MOVE");
-        let tick2 = std::ascii::string(b"M0VE");
+        let tick1 = string(b"MOVE");
+        let tick2 = string(b"M0VE");
         let tx_context = tx_context::dummy();
         let first_acc_balance = balance::create_for_testing<SUI>(50u64);
         let first_amount = 100u64;
@@ -104,108 +92,11 @@ module smartinscription::movescription_object_test{
         let second_ms = movescription::new_movescription_for_testing(second_amount, tick2, second_acc_balance, option::none(), &mut tx_context);
         movescription::do_merge(&mut first_ms, second_ms);
         movescription::drop_movescription_for_testing(first_ms);
-    }
-
-    // #[test]
-    // fun test_df(){
-    //     let tick = std::ascii::string(b"MOVE");
-    //     let tx_context = tx_context::dummy();
-    //     let acc_balance = balance::create_for_testing<SUI>(1000u64);
-    //     let inscription_amount = 1000u64;
-    //     let ms = movescription::new_movescription_for_testing(inscription_amount, tick, acc_balance, option::none(), &mut tx_context);
-    //     let value = coin::mint_for_testing<SUI>(100u64, &mut tx_context);
-    //     movescription::add_df(&mut ms, value);
-    //     assert!(movescription::exists_df<Coin<SUI>>(&ms), 1);
-    //     assert!(movescription::contains_df(&ms), 2);
-    //     assert!(movescription::attach_df(&ms) == 1u64, 3);
-    //     {
-    //         let df = movescription::borrow_df<Coin<SUI>>(&ms);
-    //         assert!(coin::value(df) == 100u64, 4);
-    //     };
-    //     {
-    //         let c = coin::mint_for_testing<SUI>(100u64, &mut tx_context);
-    //         let df = movescription::borrow_df_mut<Coin<SUI>>(&mut ms);
-    //         coin::join(df, c);
-    //     };
-    //     let new_value = movescription::remove_df<Coin<SUI>>(&mut ms);
-    //     assert!(coin::value(&new_value) == 200u64, 4);
-
-    //     assert!(!movescription::exists_df<Coin<SUI>>(&ms), 5);
-    //     assert!(!movescription::contains_df(&ms), 6);
-    //     assert!(movescription::attach_df(&ms) == 0u64, 7);
-
-    //     coin::burn_for_testing(new_value);
-    //     movescription::drop_movescription_for_testing(ms);
-    // }
-
-    // #[test]
-    // #[expected_failure]
-    // fun test_repeat_df(){
-    //     let tick = std::ascii::string(b"MOVE");
-    //     let tx_context = tx_context::dummy();
-    //     let acc_balance = balance::create_for_testing<SUI>(1000u64);
-    //     let inscription_amount = 1000u64;
-    //     let ms = movescription::new_movescription_for_testing(inscription_amount, tick, acc_balance, option::none(), &mut tx_context);
-    //     let value = coin::mint_for_testing<SUI>(100u64, &mut tx_context);
-    //     movescription::add_df(&mut ms, value);
-    //     assert!(movescription::exists_df<Coin<SUI>>(&ms), 1);
-    //     let value2 = coin::mint_for_testing<SUI>(100u64, &mut tx_context);
-    //     movescription::add_df(&mut ms, value2);
-    //     movescription::drop_movescription_for_testing(ms);
-    // }
-
-    // #[test]
-    // #[expected_failure]
-    // fun test_df_split_failed(){
-    //     let tick = std::ascii::string(b"MOVE");
-    //     let tx_context = tx_context::dummy();
-    //     let acc_balance = balance::create_for_testing<SUI>(1000u64);
-    //     let inscription_amount = 1000u64;
-    //     let ms = movescription::new_movescription_for_testing(inscription_amount, tick, acc_balance, option::none(), &mut tx_context);
-    //     let value = coin::mint_for_testing<SUI>(100u64, &mut tx_context);
-    //     movescription::add_df(&mut ms, value);
-    //     let split_amount = 100u64;
-    //     let new_ms = movescription::do_split(&mut ms, split_amount, &mut tx_context);
-    //     movescription::drop_movescription_for_testing(ms);
-    //     movescription::drop_movescription_for_testing(new_ms);
-    // }
-
-    // #[test]
-    // fun test_df_merge(){
-    //     let tick = std::ascii::string(b"MOVE");
-    //     let tx_context = tx_context::dummy();
-    //     let acc_balance = balance::create_for_testing<SUI>(1000u64);
-    //     let inscription_amount = 1000u64;
-    //     let ms = movescription::new_movescription_for_testing(inscription_amount, tick, acc_balance, option::none(), &mut tx_context);
-    //     let value = coin::mint_for_testing<SUI>(100u64, &mut tx_context);
-    //     movescription::add_df(&mut ms, value);
-    //     let acc_balance = balance::create_for_testing<SUI>(1000u64);
-    //     let second_ms = movescription::new_movescription_for_testing(inscription_amount, tick, acc_balance, option::none(), &mut tx_context);
-    //     movescription::do_merge(&mut ms, second_ms);
-    //     movescription::drop_movescription_for_testing(ms);
-    // }
-
-    // #[test]
-    // #[expected_failure]
-    // fun test_df_merge_failed(){
-    //     let tick = std::ascii::string(b"MOVE");
-    //     let tx_context = tx_context::dummy();
-    //     let acc_balance = balance::create_for_testing<SUI>(1000u64);
-    //     let inscription_amount = 1000u64;
-    //     let ms = movescription::new_movescription_for_testing(inscription_amount, tick, acc_balance, option::none(), &mut tx_context);
-    //     let value = coin::mint_for_testing<SUI>(100u64, &mut tx_context);
-    //     movescription::add_df(&mut ms, value);
-    //     let acc_balance = balance::create_for_testing<SUI>(1000u64);
-    //     let second_ms = movescription::new_movescription_for_testing(inscription_amount, tick, acc_balance, option::none(), &mut tx_context);
-    //     let value = coin::mint_for_testing<SUI>(100u64, &mut tx_context);
-    //     movescription::add_df(&mut second_ms, value);
-    //     movescription::do_merge(&mut ms, second_ms);
-    //     movescription::drop_movescription_for_testing(ms);
-    // }
+    } 
 
     #[test]
     fun test_check_tick(){
-        let tick = std::ascii::string(b"MOVE");
+        let tick = string(b"MOVE");
         let tx_context = tx_context::dummy();
         let acc_balance = balance::create_for_testing<SUI>(50u64);
         let amount = 100u64;
@@ -217,12 +108,130 @@ module smartinscription::movescription_object_test{
     #[test]
     #[expected_failure]
     fun test_check_tick_failed(){
-        let tick = std::ascii::string(b"MOVE");
+        let tick = string(b"MOVE");
         let tx_context = tx_context::dummy();
         let acc_balance = balance::create_for_testing<SUI>(50u64);
         let amount = 100u64;
         let ms = movescription::new_movescription_for_testing(amount, tick, acc_balance, option::none(), &mut tx_context);
         assert!(movescription::check_tick(&ms, b"MAVE"), 0);
         movescription::drop_movescription_for_testing(ms);
+    }
+
+    #[test]
+    fun test_lock_and_burn(){
+        let tx_context = tx_context::dummy();
+
+        let tick = string(b"MOVE");
+        let tick_record = movescription::new_tick_record_for_testing<WITNESS>(tick, 1000000, 10000, true, WITNESS{},&mut tx_context);
+        
+        let amount = 100u64;
+        let acc_balance = 50;
+        let move_ms = new_test_movescription(tick, amount, acc_balance, &mut tx_context);
+        
+        let test_ms = new_test_movescription(string(b"TEST"), amount, acc_balance, &mut tx_context);
+        movescription::lock_within(&mut move_ms, test_ms);
+
+        let (coin, locked_movescription) = movescription::do_burn_v2(&mut tick_record, move_ms, &mut tx_context);
+        assert!(option::is_some(&locked_movescription), 0);
+        let locked_movescription = option::destroy_some(locked_movescription);
+        let locked_amount = movescription::amount(&locked_movescription);
+        assert!(locked_amount == amount, 0);
+        coin::burn_for_testing(coin);
+        movescription::drop_movescription_for_testing(locked_movescription);
+        movescription::drop_tick_record_for_testing(tick_record);
+    }
+
+    #[test]
+    fun test_lock_and_split(){
+        let tx_context = tx_context::dummy();
+
+        let tick = string(b"MOVE");
+        
+        let amount = 100u64;
+        let acc_balance = 50;
+        let move_ms = new_test_movescription(tick, amount, acc_balance, &mut tx_context);
+        
+        let test_ms = new_test_movescription(string(b"TEST"), amount, acc_balance, &mut tx_context);
+        movescription::lock_within(&mut move_ms, test_ms);
+
+        let new_movescription = movescription::do_split(&mut move_ms, 50, &mut tx_context);
+        assert!(movescription::contains_locked(&new_movescription), 0);
+
+        let locked_movescription = movescription::borrow_locked(&new_movescription);
+        let locked_amount = movescription::amount(locked_movescription);
+
+        assert!(locked_amount == 50, 0);
+        movescription::drop_movescription_for_testing(move_ms);
+        movescription::drop_movescription_for_testing(new_movescription);
+    }
+
+    #[test]
+    fun test_lock_and_merge(){
+        let tx_context = tx_context::dummy();
+
+        let tick = string(b"MOVE");
+        
+        let amount = 100u64;
+        let acc_balance = 50;
+        let move_ms1 = new_test_movescription(tick, amount, acc_balance, &mut tx_context);
+        
+        let test_ms1 = new_test_movescription(string(b"TEST"), amount, acc_balance, &mut tx_context);
+        movescription::lock_within(&mut move_ms1, test_ms1);
+
+
+        let move_ms2 = new_test_movescription(tick, amount, acc_balance, &mut tx_context);
+        
+        let test_ms2 = new_test_movescription(string(b"TEST"), amount, acc_balance, &mut tx_context);
+        movescription::lock_within(&mut move_ms2, test_ms2);
+
+        movescription::do_merge(&mut move_ms1, move_ms2);
+
+        let locked_movescription = movescription::borrow_locked(&move_ms1);
+        let locked_amount = movescription::amount(locked_movescription);
+
+        assert!(locked_amount == 200, 0);
+        movescription::drop_movescription_for_testing(move_ms1);
+    }
+
+    #[test]
+    fun test_zero(){
+        let ctx = tx_context::dummy();
+        let tick = string(b"MOVE");
+        let tick_record = movescription::new_tick_record_for_testing(tick, 10000, 1000, true, WITNESS{}, &mut ctx);
+        let zero_1 = movescription::zero(&tick_record, &mut ctx);
+        let zero_2 = movescription::zero(&tick_record, &mut ctx);
+        movescription::do_merge(&mut zero_1, zero_2);
+        assert!(movescription::is_zero(&zero_1), 1);
+        movescription::destroy_zero(zero_1);
+        movescription::drop_tick_record_for_testing(tick_record);
+    }
+
+    #[test]
+    fun test_burn_by_witness(){
+        let ctx = tx_context::dummy();
+        let tick = string(b"TICK");
+        let tick_record = movescription::new_tick_record_for_testing(tick, 10000, 1000, false, WITNESS{}, &mut ctx);
+        let tick_movescription = movescription::do_mint_with_witness(&mut tick_record, balance::zero<SUI>(), 1, option::none(), WITNESS{}, &mut ctx);
+        let (locked_sui, locked_movescription) = movescription::do_burn_with_witness(&mut tick_record, tick_movescription, b"msg", WITNESS{},&mut ctx);
+        coin::destroy_zero(locked_sui);
+        option::destroy_none(locked_movescription);
+        movescription::drop_tick_record_for_testing(tick_record);
+    }
+
+    #[test]
+    #[expected_failure]
+    fun test_burn_failure(){
+        let ctx = tx_context::dummy();
+        let tick = string(b"TICK");
+        let tick_record = movescription::new_tick_record_for_testing(tick, 10000, 1000, false, WITNESS{}, &mut ctx);
+        let tick_movescription = movescription::do_mint_with_witness(&mut tick_record, balance::zero<SUI>(), 1, option::none(), WITNESS{}, &mut ctx);
+        movescription::burn_v2(&mut tick_record, tick_movescription, &mut ctx);
+        movescription::drop_tick_record_for_testing(tick_record);
+    }
+
+    #[test_only]
+    fun new_test_movescription(tick: String, amount: u64, acc: u64, ctx: &mut TxContext) : Movescription{
+        let acc_balance = balance::create_for_testing<SUI>(acc); 
+        movescription::new_movescription_for_testing(amount, tick, acc_balance, option::none(), ctx)
     }
 }
