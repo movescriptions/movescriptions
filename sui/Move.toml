@@ -1,11 +1,11 @@
 [package]
 name = "SmartInscription"
 authors = ["Pika", "10xhunter", "jolestar", "jojoo-eth"]
-version = "3.1.1"
+version = "3.1.2"
 #mainnet
 #published-at = "0x2670cf9d9c9ca2b63581ccfefcf3cb64837d878b24ca86928e05ecd3f3d82488"
 #testnet
-published-at = "0xc21b5beab1036cf45741055d507cf64f4cfaa65415d73e030f9b251307624bed"
+published-at = "0xb92d2976a8881e273578a7e0490350c9946233ba68d7a6ca5e9d05d5223ac357"
 #devnet
 #published-at = "0x3579bb6bf94eddd21e05bfeb16eb28f8e2d2c79561745fffab671b6bff6ea2f6"
 
@@ -16,5 +16,5 @@ Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-fram
 #mainnet
 #smartinscription = "0x830fe26674dc638af7c3d84030e2575f44a2bdc1baa1f4757cfe010a4b106b6a"
 #testnet
-#smartinscription = "0x757a3250eaaa0ab7f2873f70e496688e35b27928a2d4a31bec996a9f35ba8686"
-smartinscription = "0x0"
+smartinscription = "0x757a3250eaaa0ab7f2873f70e496688e35b27928a2d4a31bec996a9f35ba8686"
+#smartinscription = "0x0"

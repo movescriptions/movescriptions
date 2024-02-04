@@ -53,6 +53,10 @@
 * DeployTx: 6pv6sR6nTwiU79vYW9aAPpCaaK1FErAvSi3GTmtg1Q3M
 * PackageID: 0xc21b5beab1036cf45741055d507cf64f4cfaa65415d73e030f9b251307624bed
 
+### v3.1.2
+* DeployTx: 9R1Vv8koXWCvJYJQ6hUwRJGHNuVJM1Vi2eXVHmZJqXo1
+* PackageID: 0xb92d2976a8881e273578a7e0490350c9946233ba68d7a6ca5e9d05d5223ac357
+
 #### Migration
 * Migrate MOVE TickRecord to v2
 ```bash
