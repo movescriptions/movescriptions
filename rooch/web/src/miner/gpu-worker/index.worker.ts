@@ -1,3 +1,5 @@
+window = self
+
 import Long from "long"
 import { MintPayload } from "../types"
 import { arrayify, hexlify, type BytesLike } from "@ethersproject/bytes"

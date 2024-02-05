@@ -1,5 +1,13 @@
+'use client';
 import { useState } from 'react'
-import './App.css'
+import Container from '@mui/material/Container';
+import Button from '@mui/material/Button';
+
+import { arrayify } from "@ethersproject/bytes"
+import { MinerManager, IMinerTask, IMintResult, IMintProgress } from '../../miner'
+import { humanReadableHashrate } from '../../utils/hashRate'
+
+import { movescriptionConfig } from '@/config/movescription'
 
 /** SDK */
 import {
@@ -7,11 +15,7 @@ import {
   IAccount,
 } from '@roochnetwork/rooch-sdk'
 
-import { arrayify } from "@ethersproject/bytes"
-import { MinerManager, IMinerTask, IMintResult, IMintProgress } from './miner'
-import { humanReadableHashrate } from './utils/hashRate'
-
-const moveScriptionAddress = `${import.meta.env.VITE_MOVE_SCRIPTIONS_ADDRESS}`
+const moveScriptionAddress = `${movescriptionConfig.movescriptionAddress}`
 const mrc20PowInputFunc = `${moveScriptionAddress}::movescription::pow_input`
 const mrc20PowValidateFunc = `${moveScriptionAddress}::movescription::validate_pow`
 const mrc20MintFunc = `${moveScriptionAddress}::mrc20::do_mint`
@@ -25,7 +29,7 @@ const authorizer = new PrivateKeyAuth(kp)
 const account = new Account(client, roochAddress, authorizer)
 let minerManager = new MinerManager(4, 0);
 
-function App() {
+export default function Mint() {
   const [minting, setMinting] = useState(false);
   const [progress, setProgress] = useState<IMintProgress|undefined>(undefined);
   const [mintResult, setMintResult] = useState<IMintResult|undefined>(undefined);
@@ -136,7 +140,7 @@ function App() {
 
     const tick = 'move';
     const amount = 1000;
-    const difficulty = 4;
+    const difficulty = 2;
 
     try {
       const result = await searchNonce(account, tick, amount, difficulty)
@@ -193,7 +197,7 @@ function App() {
   }
 
   return (
-    <>
+    <Container maxWidth="lg">
       <div className="card">
         {!minting && (
           <div>
@@ -209,9 +213,9 @@ function App() {
               <div>Mint ok, tx: {tx}</div>
             )}
 
-            <button onClick={() => handleMint(account)}>
+            <Button variant="contained" onClick={() => handleMint(account)}>
               Mint
-            </button>
+            </Button>
           </div>
         )}
 
@@ -229,14 +233,12 @@ function App() {
                 </div>
               ))}
             </div>
-            <button onClick={() => handleStop()}>
+            <Button variant="contained" onClick={() => handleStop()}>
               Stop
-            </button>
+            </Button>
           </div>
         )}
       </div>
-    </>
+    </Container>
   )
 }
-
-export default App

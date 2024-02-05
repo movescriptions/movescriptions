@@ -1,3 +1,4 @@
+window = self
 
 import { MintPayload } from "../types"
 import { pow, matchDifficulty, hexlify } from "../../utils/pow"
