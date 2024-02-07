@@ -6,7 +6,11 @@
 
 * Movescription: 0x830fe26674dc638af7c3d84030e2575f44a2bdc1baa1f4757cfe010a4b106b6a::movescription::Movescription
 * DeployRecord: [0x8fb949a8ae112ee025401cdb6dcdcfe04a8817bc2912a778a875e6b3697715da](https://suiexplorer.com/object/0x8fb949a8ae112ee025401cdb6dcdcfe04a8817bc2912a778a875e6b3697715da)
-* MOVE TickRecord: [0xfa6f8ab30f91a3ca6f969d117677fb4f669e08bbeed815071cf38f4d19284199](https://suiexplorer.com/object/0xfa6f8ab30f91a3ca6f969d117677fb4f669e08bbeed815071cf38f4d19284199)
+* ~~MOVE TickRecord: [0xfa6f8ab30f91a3ca6f969d117677fb4f669e08bbeed815071cf38f4d19284199](https://suiexplorer.com/object/0xfa6f8ab30f91a3ca6f969d117677fb4f669e08bbeed815071cf38f4d19284199)~~
+* MOVE TickRecordV2: [0x31be76364e5ac57e036262981496a24fb9273aefa16212294bc9d572d9f3190a](https://suiexplorer.com/object/0x31be76364e5ac57e036262981496a24fb9273aefa16212294bc9d572d9f3190a)
+* TICK TickRecordV2: [0x1daf3c01d08c3068cee9419a8f3f542382d5adf72f4fb31fe1bd32c7187981a0](https://suiexplorer.com/object/0x1daf3c01d08c3068cee9419a8f3f542382d5adf72f4fb31fe1bd32c7187981a0)
+* NAME TickRecordV2: [0x3d1cc0df2a5ff9710e5be9e3d93b820973bb2b5cff4c73ce804257358cd755e7](https://suiexplorer.com/object/0x3d1cc0df2a5ff9710e5be9e3d93b820973bb2b5cff4c73ce804257358cd755e7)
+* TEST TickRecordV2: [0x11ca96bbeb207dba565e9693f4e063d538cc76a5dd9f0efbd5c63bbe4993c268](https://suiexplorer.com/object/0x11ca96bbeb207dba565e9693f4e063d538cc76a5dd9f0efbd5c63bbe4993c268)
 
 ### v1
 
