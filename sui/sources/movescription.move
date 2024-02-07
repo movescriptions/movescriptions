@@ -898,14 +898,20 @@ module smartinscription::movescription {
     }
 
     // clean the epoch record after the tick mint is finished
-    public fun clean_finished_tick_record(tick_record: &mut TickRecord, max_epoch: u64) {
-        let max_epoch = sui::math::min(max_epoch, table::length(&tick_record.epoch_records));
-        let idx = max_epoch - 1;
-        while(idx > 0){
-            let epoch_record = table::remove(&mut tick_record.epoch_records, idx);
-            let (_, _, _, mint_fees) = unwrap_epoch_record(epoch_record);
-            table::destroy_empty(mint_fees);
-            idx = idx - 1;
+    public fun clean_finished_tick_record(tick_record: &mut TickRecord, batch_size: u64) {
+        assert!(tick_record.remain == 0, 1000);
+        let epoch_records_length = table::length(&tick_record.epoch_records);
+        let batch_size = sui::math::min(batch_size, epoch_records_length);
+        let epoch = epoch_records_length - 1;
+        let delete_count = 0;
+        while(epoch > 0 && delete_count < batch_size){
+            if(table::contains(&tick_record.epoch_records, epoch)){
+                let epoch_record = table::remove(&mut tick_record.epoch_records, epoch);
+                let (_, _, _, mint_fees) = unwrap_epoch_record(epoch_record);
+                table::destroy_empty(mint_fees);
+                delete_count = delete_count + 1;
+            };
+            epoch = epoch - 1;
         };
     }
 
