@@ -24,6 +24,11 @@
 * DeployTx: HzKiRFwWjfN6KWiqNUMyeThkTXQwoau89Xnrpy2Zu7vv
 * PackageID: 0x2670cf9d9c9ca2b63581ccfefcf3cb64837d878b24ca86928e05ecd3f3d82488
 
+### v3.1.2
+
+* DeployTx: 64oMKuyK4rHQ7QZWnuCEyHtNhQxscyspPu8tdbjmS2GN
+* PackageID: 0xd9f7f885f233127fe822926d723bc96f958bcab63088dfbd052932bcfed6044c
+
 ## Testnet
 
 ### Types & Objects:
