@@ -3,7 +3,7 @@ name = "SmartInscription"
 authors = ["Pika", "10xhunter", "jolestar", "jojoo-eth"]
 version = "4.0.3"
 #mainnet
-published-at = "0x191862328a5ff291984c3657e711df628d404f66da9610e4ec7bc73547988fcd"
+published-at = "0xbaaa200e83ceae97f45251297c8870be5d00fb392f0bc7a5716bdf95e75f3c92"
 #testnet
 #published-at = "0xb92d2976a8881e273578a7e0490350c9946233ba68d7a6ca5e9d05d5223ac357"
 #devnet
