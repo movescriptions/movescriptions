@@ -4,9 +4,12 @@ import { u32 } from './types';
 const debug = false;
 
 async function getGPUDevice(): Promise<GPUDevice> {
+  console.log("navigator:", navigator)
   const adapter = await navigator.gpu.requestAdapter({
-    powerPreference: 'high-performance',
+    powerPreference: 'low-power',
   });
+
+  console.log("adapter:", adapter)
 
   if (!adapter) {
     throw 'No adapter';

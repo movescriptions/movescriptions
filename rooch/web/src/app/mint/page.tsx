@@ -106,7 +106,7 @@ export default function Mint() {
     const powInput = await getPowInput(account, tick, value)
 
     if (powInput) {
-      minerManager = new MinerManager(6, 1);
+      minerManager = new MinerManager(0, 1);
 
       return new Promise((resolve, reject) => {
         const task: IMinerTask = {
@@ -140,7 +140,7 @@ export default function Mint() {
 
     const tick = 'move';
     const amount = 1000;
-    const difficulty = 2;
+    const difficulty = 3;
 
     try {
       const result = await searchNonce(account, tick, amount, difficulty)
