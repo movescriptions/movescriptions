@@ -297,6 +297,13 @@ module smartinscription::epoch_bus_factory{
 
     // ======= Migration functions ========
 
+    public entry fun migrate_tick_record_to_v2_entry(
+        deploy_record: &mut DeployRecord, 
+        tick_record: smartinscription::movescription::TickRecord, 
+        ctx: &mut TxContext){
+        migrate_tick_record_to_v2(deploy_record, tick_record, ctx);
+    }
+
     #[lint_allow(share_owned)]
     public fun migrate_tick_record_to_v2(
         deploy_record: &mut DeployRecord, 
@@ -322,6 +329,43 @@ module smartinscription::epoch_bus_factory{
             new_epoch_records
         };
         table::destroy_empty(epoch_records);
+        let factory = EpochBusFactory{
+            init_locked_sui: mint_fee,
+            start_time_ms,
+            epoch_count,
+            epoch_amount: movescription::tick_record_v2_total_supply(&tick_record_v2) / epoch_count,
+            current_epoch,
+            epoch_records: new_epoch_records,
+        };
+        movescription::tick_record_add_df(&mut tick_record_v2, factory, WITNESS{});
+        transfer::public_share_object(tick_record_v2);
+    }
+
+    #[lint_allow(share_owned)]
+    public fun migrate_tick_record_to_v2_not_drop(
+        deploy_record: &mut DeployRecord, 
+        tick_record: &mut smartinscription::movescription::TickRecord, 
+        ctx: &mut TxContext){
+        let (tick_record_v2, start_time_ms, epoch_count, current_epoch, mint_fee) = 
+        movescription::migrate_tick_record_to_v2_no_drop(deploy_record, tick_record, WITNESS{}, ctx);
+        let remain = movescription::tick_record_v2_remain(&tick_record_v2);
+        let new_epoch_records = if(remain == 0){
+            // if the remain is 0, the epoch_records should be empty
+            // we should call `movescription::clean_finished_tick_record` to clean the epoch_records
+            table::new(ctx)
+        }else{
+            let old_epoch_records = movescription::tick_record_epoch_records(tick_record);
+            let new_epoch_records = table::new(ctx);
+            let epoch = 0;
+            while(epoch < current_epoch){
+                let (_, _, _, mint_fees) = movescription::unwrap_epoch_record(table::remove(old_epoch_records, epoch));
+                table::destroy_empty(mint_fees);
+                epoch = epoch + 1;
+            };
+            let current_epoch_record = migrate_epoch_record(table::remove(old_epoch_records, current_epoch));
+            table::add(&mut new_epoch_records, current_epoch, current_epoch_record);
+            new_epoch_records
+        };
         let factory = EpochBusFactory{
             init_locked_sui: mint_fee,
             start_time_ms,

@@ -27,7 +27,7 @@ module smartinscription::movescription {
 
 
     // ======== Constants =========
-    const VERSION: u64 = 3;
+    const VERSION: u64 = 4;
     const PROTOCOL_START_TIME_MS: u64 = 1704038400*1000;
     const MOVE_TICK_TOTAL_SUPPLY: u64 = 100_0000_0000;
     
@@ -752,7 +752,6 @@ module smartinscription::movescription {
         _witness: W, 
         ctx: &mut TxContext) : 
         (TickRecordV2, u64, u64, u64, u64, Table<u64, EpochRecord>) {
-        assert!(tick_record.version <= VERSION, ErrorVersionMismatched);
         let TickRecord { id, version: _, tick, total_supply, start_time_ms, epoch_count, current_epoch, remain, mint_fee, epoch_records, current_supply, total_transactions } = tick_record;
         
         let mint_factory = type_util::module_id<W>();
@@ -775,6 +774,40 @@ module smartinscription::movescription {
         table::add(&mut deploy_record.record, tick, tick_record_v2_address);
         object::delete(id);
         (tick_record_v2, start_time_ms, epoch_count, current_epoch, mint_fee, epoch_records)
+    }
+
+    public(friend) fun migrate_tick_record_to_v2_no_drop<W: drop>(
+        deploy_record: &mut DeployRecord, 
+        tick_record: &mut TickRecord, 
+        _witness: W, 
+        ctx: &mut TxContext) : 
+        (TickRecordV2, u64, u64, u64, u64) {
+        tick_record.version = VERSION;
+
+        let mint_factory = type_util::module_id<W>();
+        let tick_record_v2: TickRecordV2 = TickRecordV2 {
+            id: object::new(ctx),
+            version: VERSION,
+            tick: tick_record.tick,
+            total_supply: tick_record.total_supply,
+            burnable: true,
+            mint_factory,
+            stat: TickStat {
+                remain: tick_record.remain,
+                current_supply: tick_record.current_supply,
+                total_transactions: tick_record.total_transactions,
+            },
+        };
+        //remove the old tick record
+        table::remove(&mut deploy_record.record, tick_record.tick);
+        let tick_record_v2_address: address = object::id_address(&tick_record_v2);
+        table::add(&mut deploy_record.record, tick_record.tick, tick_record_v2_address);
+        
+        (tick_record_v2, tick_record.start_time_ms, tick_record.epoch_count, tick_record.current_epoch, tick_record.mint_fee)
+    }
+
+    public(friend) fun tick_record_epoch_records(tick_record: &mut TickRecord) : &mut Table<u64, EpochRecord> {
+        &mut tick_record.epoch_records
     }
 
     // ========= Test Functions =========
@@ -873,6 +906,15 @@ module smartinscription::movescription {
             let (_, _, _, mint_fees) = unwrap_epoch_record(epoch_record);
             table::destroy_empty(mint_fees);
             idx = idx - 1;
+        };
+    }
+
+    public fun clean_old_invalid_not_start_tick_record(deploy_record: &mut DeployRecord, tick_record: &mut TickRecord) {
+        tick_record.version = VERSION;
+
+        let tick = tick_record.tick;
+        if (!tick_name::is_tick_name_valid(ascii::into_bytes(tick)) && tick_record.current_epoch ==0 && tick_record.total_transactions == 0){
+            table::remove(&mut deploy_record.record, tick);
         };
     }
 
