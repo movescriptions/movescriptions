@@ -915,6 +915,15 @@ module smartinscription::movescription {
         };
     }
 
+    public fun clean_finished_tick_record_via_epoch(tick_record: &mut TickRecord, epoch: u64) {
+        assert!(tick_record.remain == 0, 1000);
+        if(table::contains(&tick_record.epoch_records, epoch)){
+            let epoch_record = table::remove(&mut tick_record.epoch_records, epoch);
+            let (_, _, _, mint_fees) = unwrap_epoch_record(epoch_record);
+            table::destroy_empty(mint_fees);
+        };
+    }
+
     public fun clean_old_invalid_not_start_tick_record(deploy_record: &mut DeployRecord, tick_record: &mut TickRecord) {
         tick_record.version = VERSION;
 

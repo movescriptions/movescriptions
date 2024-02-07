@@ -38,6 +38,14 @@
 * DeployTx: 3gNhReVjmPmLNr5RbLD8c2h1FLV8NNUzP2AdJE4WGaFZ
 * PackageID: 0x1f82c47f89cd6117d13e4441baa2d8a9e5a5a0947575a805949450e80a821597
 
+### v4.0.1 
+* DeployTx: B6k1mDam8wixCa7jr3rbULCk5E8S3D6DwbEaYwU7wVeD
+* PackageID: 0x0c4eb8a13f4b58916a5d6d674675e96bf92a56b225833f936880a525d2aba3c4
+
+### v4.0.2
+* DeployTx: 8jDjAmMrajXTqSMdgB96NfzAmfSATsibAiBtQCUZhca1
+* PackageID: 0x191862328a5ff291984c3657e711df628d404f66da9610e4ec7bc73547988fcd
+
 ## Testnet
 
 ### Types & Objects:

@@ -349,9 +349,9 @@ module smartinscription::epoch_bus_factory{
         let (tick_record_v2, start_time_ms, epoch_count, current_epoch, mint_fee) = 
         movescription::migrate_tick_record_to_v2_no_drop(deploy_record, tick_record, WITNESS{}, ctx);
         let remain = movescription::tick_record_v2_remain(&tick_record_v2);
-        let new_epoch_records = if(remain == 0){
-            // if the remain is 0, the epoch_records should be empty
-            // we should call `movescription::clean_finished_tick_record` to clean the epoch_records
+        let has_started = movescription::tick_record_v2_total_transactions(&tick_record_v2) > 0;
+        let new_epoch_records = if(remain == 0 || !has_started){
+            // if the remain is 0, or not started the epoch_records should be empty
             table::new(ctx)
         }else{
             let old_epoch_records = movescription::tick_record_epoch_records(tick_record);
