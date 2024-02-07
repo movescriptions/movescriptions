@@ -1647,11 +1647,6 @@
     superstruct "^1.0.3"
     tweetnacl "^1.0.3"
 
-"@zeit/next-workers@^1.0.1-canary.1":
-  version "1.0.1-canary.1"
-  resolved "https://registry.npmjs.org/@zeit/next-workers/-/next-workers-1.0.1-canary.1.tgz#387e1af00d974f45060cbac8d7e6c418abea279c"
-  integrity sha512-/pIEkk15fHXiczGgv6TzxnUYnyX46ZiYad5fr+9ohblAxugeLAEKjx6B+VAo2ifcbGy5sfxAPb869qGBP0SeUA==
-
 abab@^2.0.6:
   version "2.0.6"
   resolved "https://registry.npmjs.org/abab/-/abab-2.0.6.tgz#41b80f2c871d19686216b82309231cfd3cb3d291"

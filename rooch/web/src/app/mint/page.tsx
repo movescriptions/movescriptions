@@ -106,7 +106,7 @@ export default function Mint() {
     const powInput = await getPowInput(account, tick, value)
 
     if (powInput) {
-      minerManager = new MinerManager(0, 1);
+      minerManager = new MinerManager(6, 1);
 
       return new Promise((resolve, reject) => {
         const task: IMinerTask = {
@@ -226,7 +226,7 @@ export default function Mint() {
             </div>
             <div>
               {progress && progress.details && progress.details.map((item, index)=>(
-                <div key={"item_" + index} style={{display: 'flex', justifyContent: 'space-between'}}>
+                <div key={"item_" + index} style={{display: 'flex', justifyContent: 'space-between', fontFamily: "'Courier New', monospace"}}>
                   <div style={{width: '33%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>Hash: {item.hash}</div>
                   <div style={{width: '33%'}}>Nonce: {item.nonce}</div>
                   <div style={{width: '33%'}}>{humanReadableHashrate(item.hashRate)}</div>
