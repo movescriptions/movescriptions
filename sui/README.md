@@ -28,6 +28,7 @@
 
 * DeployTx: 64oMKuyK4rHQ7QZWnuCEyHtNhQxscyspPu8tdbjmS2GN
 * PackageID: 0xd9f7f885f233127fe822926d723bc96f958bcab63088dfbd052932bcfed6044c
+* TickRecordV2 type: 0xd9f7f885f233127fe822926d723bc96f958bcab63088dfbd052932bcfed6044c::movescription::TickRecordV2
 
 ### v3.1.3
 
@@ -45,6 +46,10 @@
 ### v4.0.2
 * DeployTx: 8jDjAmMrajXTqSMdgB96NfzAmfSATsibAiBtQCUZhca1
 * PackageID: 0x191862328a5ff291984c3657e711df628d404f66da9610e4ec7bc73547988fcd
+
+### v4.0.3
+* DeployTx: 6JszkSUWkSHMoBmmwGPf7cmRWRNGGSacLKrviuvmhubj
+* PackageID: 0xbaaa200e83ceae97f45251297c8870be5d00fb392f0bc7a5716bdf95e75f3c92
 
 ## Testnet
 

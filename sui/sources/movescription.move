@@ -752,6 +752,7 @@ module smartinscription::movescription {
         _witness: W, 
         ctx: &mut TxContext) : 
         (TickRecordV2, u64, u64, u64, u64, Table<u64, EpochRecord>) {
+        assert!(deploy_record.version <= VERSION, ErrorVersionMismatched);
         let TickRecord { id, version: _, tick, total_supply, start_time_ms, epoch_count, current_epoch, remain, mint_fee, epoch_records, current_supply, total_transactions } = tick_record;
         
         let mint_factory = type_util::module_id<W>();
@@ -782,6 +783,8 @@ module smartinscription::movescription {
         _witness: W, 
         ctx: &mut TxContext) : 
         (TickRecordV2, u64, u64, u64, u64) {
+        assert!(deploy_record.version <= VERSION, ErrorVersionMismatched);
+        assert!(tick_record.version < VERSION, ErrorVersionMismatched);
         tick_record.version = VERSION;
 
         let mint_factory = type_util::module_id<W>();

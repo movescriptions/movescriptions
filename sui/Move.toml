@@ -1,7 +1,7 @@
 [package]
 name = "SmartInscription"
 authors = ["Pika", "10xhunter", "jolestar", "jojoo-eth"]
-version = "4.0.2"
+version = "4.0.3"
 #mainnet
 published-at = "0x191862328a5ff291984c3657e711df628d404f66da9610e4ec7bc73547988fcd"
 #testnet
