@@ -356,12 +356,7 @@ module smartinscription::epoch_bus_factory{
         }else{
             let old_epoch_records = movescription::tick_record_epoch_records(tick_record);
             let new_epoch_records = table::new(ctx);
-            let epoch = 0;
-            while(epoch < current_epoch){
-                let (_, _, _, mint_fees) = movescription::unwrap_epoch_record(table::remove(old_epoch_records, epoch));
-                table::destroy_empty(mint_fees);
-                epoch = epoch + 1;
-            };
+            // only migrate the current epoch
             let current_epoch_record = migrate_epoch_record(table::remove(old_epoch_records, current_epoch));
             table::add(&mut new_epoch_records, current_epoch, current_epoch_record);
             new_epoch_records

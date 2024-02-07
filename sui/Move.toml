@@ -1,9 +1,9 @@
 [package]
 name = "SmartInscription"
 authors = ["Pika", "10xhunter", "jolestar", "jojoo-eth"]
-version = "4.0.0"
+version = "4.0.1"
 #mainnet
-published-at = "0xd9f7f885f233127fe822926d723bc96f958bcab63088dfbd052932bcfed6044c"
+published-at = "0x1f82c47f89cd6117d13e4441baa2d8a9e5a5a0947575a805949450e80a821597"
 #testnet
 #published-at = "0xb92d2976a8881e273578a7e0490350c9946233ba68d7a6ca5e9d05d5223ac357"
 #devnet
