@@ -24,6 +24,33 @@
 * DeployTx: HzKiRFwWjfN6KWiqNUMyeThkTXQwoau89Xnrpy2Zu7vv
 * PackageID: 0x2670cf9d9c9ca2b63581ccfefcf3cb64837d878b24ca86928e05ecd3f3d82488
 
+### v3.1.2
+
+* DeployTx: 64oMKuyK4rHQ7QZWnuCEyHtNhQxscyspPu8tdbjmS2GN
+* PackageID: 0xd9f7f885f233127fe822926d723bc96f958bcab63088dfbd052932bcfed6044c
+* TickRecordV2 type: 0xd9f7f885f233127fe822926d723bc96f958bcab63088dfbd052932bcfed6044c::movescription::TickRecordV2
+
+### v3.1.3
+
+* DeployTx: BrfULYijSWsmCrEqFj63KpQVs3nrXQcqnenK6P9sxybY
+* PackageID: 0x10374be731f62d816c15c58a3f5d142936b41ef3584dff55ba55af3cf4895f10
+
+### v4.0.0
+* DeployTx: 3gNhReVjmPmLNr5RbLD8c2h1FLV8NNUzP2AdJE4WGaFZ
+* PackageID: 0x1f82c47f89cd6117d13e4441baa2d8a9e5a5a0947575a805949450e80a821597
+
+### v4.0.1 
+* DeployTx: B6k1mDam8wixCa7jr3rbULCk5E8S3D6DwbEaYwU7wVeD
+* PackageID: 0x0c4eb8a13f4b58916a5d6d674675e96bf92a56b225833f936880a525d2aba3c4
+
+### v4.0.2
+* DeployTx: 8jDjAmMrajXTqSMdgB96NfzAmfSATsibAiBtQCUZhca1
+* PackageID: 0x191862328a5ff291984c3657e711df628d404f66da9610e4ec7bc73547988fcd
+
+### v4.0.3
+* DeployTx: 6JszkSUWkSHMoBmmwGPf7cmRWRNGGSacLKrviuvmhubj
+* PackageID: 0xbaaa200e83ceae97f45251297c8870be5d00fb392f0bc7a5716bdf95e75f3c92
+
 ## Testnet
 
 ### Types & Objects:

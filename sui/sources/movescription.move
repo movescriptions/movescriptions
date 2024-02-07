@@ -27,7 +27,7 @@ module smartinscription::movescription {
 
 
     // ======== Constants =========
-    const VERSION: u64 = 3;
+    const VERSION: u64 = 4;
     const PROTOCOL_START_TIME_MS: u64 = 1704038400*1000;
     const MOVE_TICK_TOTAL_SUPPLY: u64 = 100_0000_0000;
     
@@ -752,7 +752,7 @@ module smartinscription::movescription {
         _witness: W, 
         ctx: &mut TxContext) : 
         (TickRecordV2, u64, u64, u64, u64, Table<u64, EpochRecord>) {
-        assert!(tick_record.version <= VERSION, ErrorVersionMismatched);
+        assert!(deploy_record.version <= VERSION, ErrorVersionMismatched);
         let TickRecord { id, version: _, tick, total_supply, start_time_ms, epoch_count, current_epoch, remain, mint_fee, epoch_records, current_supply, total_transactions } = tick_record;
         
         let mint_factory = type_util::module_id<W>();
@@ -775,6 +775,42 @@ module smartinscription::movescription {
         table::add(&mut deploy_record.record, tick, tick_record_v2_address);
         object::delete(id);
         (tick_record_v2, start_time_ms, epoch_count, current_epoch, mint_fee, epoch_records)
+    }
+
+    public(friend) fun migrate_tick_record_to_v2_no_drop<W: drop>(
+        deploy_record: &mut DeployRecord, 
+        tick_record: &mut TickRecord, 
+        _witness: W, 
+        ctx: &mut TxContext) : 
+        (TickRecordV2, u64, u64, u64, u64) {
+        assert!(deploy_record.version <= VERSION, ErrorVersionMismatched);
+        assert!(tick_record.version < VERSION, ErrorVersionMismatched);
+        tick_record.version = VERSION;
+
+        let mint_factory = type_util::module_id<W>();
+        let tick_record_v2: TickRecordV2 = TickRecordV2 {
+            id: object::new(ctx),
+            version: VERSION,
+            tick: tick_record.tick,
+            total_supply: tick_record.total_supply,
+            burnable: true,
+            mint_factory,
+            stat: TickStat {
+                remain: tick_record.remain,
+                current_supply: tick_record.current_supply,
+                total_transactions: tick_record.total_transactions,
+            },
+        };
+        //remove the old tick record
+        table::remove(&mut deploy_record.record, tick_record.tick);
+        let tick_record_v2_address: address = object::id_address(&tick_record_v2);
+        table::add(&mut deploy_record.record, tick_record.tick, tick_record_v2_address);
+        
+        (tick_record_v2, tick_record.start_time_ms, tick_record.epoch_count, tick_record.current_epoch, tick_record.mint_fee)
+    }
+
+    public(friend) fun tick_record_epoch_records(tick_record: &mut TickRecord) : &mut Table<u64, EpochRecord> {
+        &mut tick_record.epoch_records
     }
 
     // ========= Test Functions =========
@@ -865,14 +901,38 @@ module smartinscription::movescription {
     }
 
     // clean the epoch record after the tick mint is finished
-    public fun clean_finished_tick_record(tick_record: &mut TickRecord, max_epoch: u64) {
-        let max_epoch = sui::math::min(max_epoch, table::length(&tick_record.epoch_records));
-        let idx = max_epoch - 1;
-        while(idx > 0){
-            let epoch_record = table::remove(&mut tick_record.epoch_records, idx);
+    public fun clean_finished_tick_record(tick_record: &mut TickRecord, batch_size: u64) {
+        assert!(tick_record.remain == 0, 1000);
+        let epoch_records_length = table::length(&tick_record.epoch_records);
+        let batch_size = sui::math::min(batch_size, epoch_records_length);
+        let epoch = epoch_records_length - 1;
+        let delete_count = 0;
+        while(epoch > 0 && delete_count < batch_size){
+            if(table::contains(&tick_record.epoch_records, epoch)){
+                let epoch_record = table::remove(&mut tick_record.epoch_records, epoch);
+                let (_, _, _, mint_fees) = unwrap_epoch_record(epoch_record);
+                table::destroy_empty(mint_fees);
+                delete_count = delete_count + 1;
+            };
+            epoch = epoch - 1;
+        };
+    }
+
+    public fun clean_finished_tick_record_via_epoch(tick_record: &mut TickRecord, epoch: u64) {
+        assert!(tick_record.remain == 0, 1000);
+        if(table::contains(&tick_record.epoch_records, epoch)){
+            let epoch_record = table::remove(&mut tick_record.epoch_records, epoch);
             let (_, _, _, mint_fees) = unwrap_epoch_record(epoch_record);
             table::destroy_empty(mint_fees);
-            idx = idx - 1;
+        };
+    }
+
+    public fun clean_old_invalid_not_start_tick_record(deploy_record: &mut DeployRecord, tick_record: &mut TickRecord) {
+        tick_record.version = VERSION;
+
+        let tick = tick_record.tick;
+        if (!tick_name::is_tick_name_valid(ascii::into_bytes(tick)) && tick_record.current_epoch ==0 && tick_record.total_transactions == 0){
+            table::remove(&mut deploy_record.record, tick);
         };
     }
 
