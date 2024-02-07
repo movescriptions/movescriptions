@@ -342,7 +342,7 @@ module smartinscription::epoch_bus_factory{
     }
 
     #[lint_allow(share_owned)]
-    public fun migrate_tick_record_to_v2_not_drop(
+    public fun migrate_tick_record_to_v2_no_drop(
         deploy_record: &mut DeployRecord, 
         tick_record: &mut smartinscription::movescription::TickRecord, 
         ctx: &mut TxContext){
