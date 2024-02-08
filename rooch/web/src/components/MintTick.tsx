@@ -18,7 +18,7 @@ import { useRoochClient } from '@roochnetwork/rooch-sdk-kit'
 const moveScriptionAddress = `${movescriptionConfig.movescriptionAddress}`
 const mrc20PowInputFunc = `${moveScriptionAddress}::movescription::pow_input`
 const mrc20PowValidateFunc = `${moveScriptionAddress}::movescription::validate_pow`
-const mrc20MintFunc = `${moveScriptionAddress}::mrc20::do_mint`
+const mrc20MintFunc = `${moveScriptionAddress}::mrc20::mint`
 
 
 let minerManager = new MinerManager(4, 0);
@@ -203,7 +203,7 @@ export default function MintTick(props: MintTickProps) {
   }
 
   return (
-    <Box sx={{ maxWidth: 'lg' }}>
+    <Box style={{display: 'flex', justifyContent: 'center'}}>
         {!minting && (
           <div>
             {mintResult && (

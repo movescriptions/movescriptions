@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image'
 import * as React from 'react';
 import { styled, useTheme, Theme, CSSObject } from '@mui/material/styles';
 import Box from '@mui/material/Box';
@@ -18,6 +19,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import InboxIcon from '@mui/icons-material/MoveToInbox';
 import MailIcon from '@mui/icons-material/Mail';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import { AppBar}  from '@/components/AppBar';
 import { siteConfig } from '@/config/site';
 import { useRouter } from 'next/navigation';
@@ -103,13 +105,25 @@ export default function Template({ children }: { children: React.ReactNode }) {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            {siteConfig.name}
+             
           </Typography>
           <ConnectButton/>
         </Toolbar>
       </AppBar>
       <Drawer variant="permanent" open={open}>
         <DrawerHeader>
+          <Image
+            src="/logo.svg" // 在 public 文件夹中的路径
+            alt="logo"
+            width={16}
+            height={30}
+            style={{ marginLeft: "16px"}}
+          />
+
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1, marginLeft: "10px"}}>
+            {siteConfig.name}
+          </Typography>
+
           <IconButton onClick={handleDrawerClose}>
             {theme.direction === 'rtl' ? <ChevronRightIcon /> : <ChevronLeftIcon />}
           </IconButton>
@@ -133,7 +147,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
                     justifyContent: 'center',
                   }}
                 >
-                  {index % 2 === 0 ? <InboxIcon /> : <MailIcon />}
+                  {item.icon ? item.icon: <MailIcon />}
                 </ListItemIcon>
                 <ListItemText primary={item.title} sx={{ opacity: open ? 1 : 0 }} />
               </ListItemButton>

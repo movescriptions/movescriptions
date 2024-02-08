@@ -1,5 +1,5 @@
 export type MovescriptionConfig = typeof movescriptionConfig
 
 export const movescriptionConfig = {
-  movescriptionAddress: '0x4ba7cc57852fb1e4b0d725982679ce64db5abd5d6090ebb9e63b2e2b70f3b7d7',
+  movescriptionAddress: '0x5416690eaaf671031dc609ff8d36766d2eb91ca44f04c85c27628db330f40fd1',
 }

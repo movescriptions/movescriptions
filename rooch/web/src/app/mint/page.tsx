@@ -12,6 +12,10 @@ export default function Mint() {
 
   return (
     <Container maxWidth="lg">
+      <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
+        Mint
+      </Typography>
+
       {sessionAccount ? (
         <MintTick account={sessionAccount} tick='move' amount={1000} difficulty={3}/>
       ):(

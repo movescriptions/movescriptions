@@ -4,19 +4,22 @@ import { useEffect, useState } from 'react'
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import CardActions from '@mui/material/CardActions'
 import CardContent from '@mui/material/CardContent';
 import Grid from '@mui/material/Grid';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import ButtonGroup from '@mui/material/ButtonGroup';
 
 import { Movescription } from '@/types'
 import { movescriptionConfig } from '@/config/movescription'
 import { IndexerStateID, GlobalStateFilterView } from '@roochnetwork/rooch-sdk'
 import { useRoochClient } from '@roochnetwork/rooch-sdk-kit'
 
-const itemsPerPage = 20;
+const itemsPerPage = 9;
 
 export type UserAssetsProps = {
   address: string,
@@ -55,7 +58,7 @@ export default function UserAssets(props: UserAssetsProps) {
 
       const newItems = new Array<Movescription>();
       for (const state of newData.data) {
-        items.push({
+        newItems.push({
           object_id: `${state.object_id}`,
           tick: "MOVE",
           value: 925,
@@ -63,6 +66,7 @@ export default function UserAssets(props: UserAssetsProps) {
       }
 
       setItems([...items, ...newItems]);
+
       setNextCursor(newData.next_cursor);
       setHasMore(newData.has_next_page);
     } catch (e: any) {
@@ -78,26 +82,39 @@ export default function UserAssets(props: UserAssetsProps) {
   };
 
   useEffect(() => {
+    if (!hasMore) {
+      return
+    }
+
+    console.log("handleLoadMore");
+
     handleLoadMore()
-  }, [])
+  }, [props.address])
 
   return (
     <Box sx={{ maxWidth: 'lg' }}>
-      <Grid container spacing={2}>
-        {items.length>0 ? items.map((item) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={item.object_id}>
-              <Card style={{ width: '100%', height: '120px' }}>
-                <CardContent>
-                  <Typography variant="h5" component="div">
-                    {item.tick}({item.object_id})
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {item.value}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-        )):(
+      <Grid container spacing={4}>
+        {items.length > 0 ? items.map((item) => (
+          <Grid item xs={12} sm={6} md={4} key={item.object_id}>
+            <Card style={{ width: '100%', padding: '10px' }}>
+              <CardContent>
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <Chip label={item.tick} color="primary" size='small'/>
+                  <Chip label={'#' + item.object_id.substring(2, 8)} color="secondary" size='small' />
+                </div>
+                <Typography variant="h5" color="text.secondary" align="center">
+                  {item.value}
+                </Typography>
+              </CardContent>
+              <CardActions style={{display: 'flex', justifyContent: 'space-between'}}>
+                <Button variant="outlined" size='small'>Transfer</Button>
+                <Button variant="outlined" size='small'>List</Button>
+                <Button variant="outlined" size='small'>Split</Button>
+                <Button variant="outlined" size='small' color="error">Burn</Button>
+              </CardActions>
+            </Card>
+          </Grid>
+        )) : (
           <Typography>No Inscription</Typography>
         )}
       </Grid>
@@ -112,9 +129,14 @@ export default function UserAssets(props: UserAssetsProps) {
         </Alert>
       </Snackbar>
 
-      {hasMore && (
-        <Button onClick={handleLoadMore}>Load More</Button>
-      )}
+      <Box style={{display: 'flex', justifyContent: 'center', marginTop: '10px'}}>
+        <ButtonGroup variant="contained" aria-label="Basic button group">
+          {hasMore && (
+            <Button onClick={handleLoadMore} variant="contained">Load More</Button>
+          )}
+        </ButtonGroup>
+      </Box>
+
     </Box>
   );
 }

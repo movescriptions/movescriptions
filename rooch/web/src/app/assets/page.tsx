@@ -3,7 +3,6 @@ import * as React from 'react';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import Copyright from '@/components/Copyright';
  
 import UserAssets from "@/components/UserAssets"
 import { RoochMultiChainID } from '@roochnetwork/rooch-sdk'
@@ -39,8 +38,6 @@ export default function MyAssets() {
         ) : (
           <Typography>Please connect wallet to view assets.</Typography>
         )}
-
-        <Copyright />
       </Box>
     </Container>
   );

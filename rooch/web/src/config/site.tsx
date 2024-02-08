@@ -1,3 +1,7 @@
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import SportsCricketIcon from '@mui/icons-material/SportsCricket';
+import HomeIcon from '@mui/icons-material/Home';
+
 export type SiteConfig = typeof siteConfig
 
 export const siteConfig = {
@@ -8,18 +12,17 @@ export const siteConfig = {
     {
       title: "Home",
       href: "/",
+      icon: <HomeIcon/>
     },
     {
       title: "Mint",
       href: "/mint",
-    },
-    {
-      title: "Marketplace",
-      href: "https://mrc20.app/market/",
+      icon: <SportsCricketIcon/>
     },
     {
       title: "My Assets",
       href: "/assets",
+      icon: <AccountBalanceIcon/>
     },
   ],
   links: {
