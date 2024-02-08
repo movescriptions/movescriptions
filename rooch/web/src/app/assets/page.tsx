@@ -17,6 +17,8 @@ export default function MyAssets() {
     RoochMultiChainID.Bitcoin,
   )
 
+  console.log("my rooch address:", roochAddress.data);
+
   return (
     <Container maxWidth="lg">
       <Box

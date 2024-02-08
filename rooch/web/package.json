@@ -22,7 +22,7 @@
     "@mui/icons-material": "^5.15.6",
     "@mui/material": "^5.15.6",
     "@mui/material-nextjs": "^5.15.6",
-    "@roochnetwork/rooch-sdk": "./libs/roochnetwork-rooch-sdk-0.0.7.tgz",
+    "@yubing744/rooch-sdk": "0.1.0",
     "@roochnetwork/rooch-sdk-kit": "./libs/roochnetwork-rooch-sdk-kit-0.1.0.tgz",
     "@tanstack/react-query": "^5.18.0",
     "@types/uuid": "^9.0.7",

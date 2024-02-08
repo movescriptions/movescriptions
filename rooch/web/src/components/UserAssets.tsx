@@ -48,6 +48,7 @@ export default function UserAssets(props: UserAssetsProps) {
         filter: filter,
         cursor: nextCursor,
         limit: itemsPerPage,
+        descending_order: true,
       })
 
       console.log("handleLoadMore result:", newData);

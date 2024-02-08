@@ -20,7 +20,7 @@ interface Props {
 const defaultScope = [
   '0x1::*::*',
   '0x3::*::*',
-  `${movescriptionConfig}::*::*`,
+  `${movescriptionConfig.movescriptionAddress}::*::*`,
 ]
 
 export default function AuthDialog({ open, onReqAuthorize, onLogout }: Props) {

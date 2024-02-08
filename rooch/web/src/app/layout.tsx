@@ -5,6 +5,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import CircularProgress from '@mui/material/CircularProgress'
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from '@/theme';
+import SessionGuard from '@/components/SessionGuard';
 
 import {
   QueryClient,
@@ -27,7 +28,9 @@ export default function RootLayout(props: { children: React.ReactNode }) {
                 <ThemeProvider theme={theme}>
                   {/* CssBaseline kickstart an elegant, consistent, and simple baseline to build upon. */}
                   <CssBaseline />
-                  {props.children}
+                  <SessionGuard>
+                    {props.children}
+                  </SessionGuard>
                 </ThemeProvider>
               </WalletProvider>
             </RoochClientProvider>
