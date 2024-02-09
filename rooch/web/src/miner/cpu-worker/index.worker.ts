@@ -1,6 +1,6 @@
-
+'use client';
+self.window = self;
 import { MintPayload } from "../types"
-import { pow, matchDifficulty, hexlify } from "../../utils/pow"
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const ctx: Worker = self as any;
@@ -57,6 +57,8 @@ async function notifyEnd(id: string, nonce: number | undefined, hash: string | u
 }
 
 const searchNonce = async (payload: MintPayload) => {
+  const { pow, matchDifficulty, hexlify } = await import("../../utils/pow")
+
   const { id, powData, difficulty, seqStart, seqEnd } = payload;
   let lastTime = new Date().getTime();
   let nonce = seqStart

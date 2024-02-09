@@ -1,31 +1,39 @@
+'use client';
 import { useState } from 'react'
-import './App.css'
 
-/** SDK */
-import {
-  RoochClient, DevChain, Account, Ed25519Keypair, PrivateKeyAuth,
-  IAccount,
-} from '@roochnetwork/rooch-sdk'
+import Button from '@mui/material/Button';
+import Box from '@mui/material/Box';
 
 import { arrayify } from "@ethersproject/bytes"
-import { MinerManager, IMinerTask, IMintResult, IMintProgress } from './miner'
-import { humanReadableHashrate } from './utils/hashRate'
+import { MinerManager, IMinerTask, IMintResult, IMintProgress } from '../miner'
+import { humanReadableHashrate } from '../utils/hashRate'
 
-const moveScriptionAddress = `${import.meta.env.VITE_MOVE_SCRIPTIONS_ADDRESS}`
+import { movescriptionConfig } from '@/config/movescription'
+
+/** SDK */
+import { IAccount } from '@yubing744/rooch-sdk'
+import { useRoochClient } from '@roochnetwork/rooch-sdk-kit'
+
+
+const moveScriptionAddress = `${movescriptionConfig.movescriptionAddress}`
+const mrc20TickInfoFunc = `${moveScriptionAddress}::movescription::get_tick_info`
 const mrc20PowInputFunc = `${moveScriptionAddress}::movescription::pow_input`
 const mrc20PowValidateFunc = `${moveScriptionAddress}::movescription::validate_pow`
-const mrc20MintFunc = `${moveScriptionAddress}::mrc20::do_mint`
+const mrc20MintFunc = `${moveScriptionAddress}::mrc20::mint`
 
-const client = new RoochClient(DevChain)
-const kp = Ed25519Keypair.deriveKeypair(
-  'nose aspect organ harbor move prepare raven manage lamp consider oil front',
-)
-const roochAddress = kp.getPublicKey().toRoochAddress()
-const authorizer = new PrivateKeyAuth(kp)
-const account = new Account(client, roochAddress, authorizer)
+
 let minerManager = new MinerManager(4, 0);
 
-function App() {
+export type MintTickProps = {
+  account: IAccount,
+  tick: string,
+  amount: number,
+}
+
+export default function MintTick(props: MintTickProps) {
+  const client = useRoochClient();
+  const account = props.account;
+
   const [minting, setMinting] = useState(false);
   const [progress, setProgress] = useState<IMintProgress|undefined>(undefined);
   const [mintResult, setMintResult] = useState<IMintResult|undefined>(undefined);
@@ -33,10 +41,10 @@ function App() {
   const [tx, setTX] = useState<string|undefined>(undefined);
 
   const getPowInput = async (account: IAccount, tick: string, value: number) => {
-    const resp = await client.executeViewFunction(
-      mrc20PowInputFunc,
-      [],
-      [
+    const resp = await client.executeViewFunction({
+      funcId: mrc20PowInputFunc,
+      tyArgs: [],
+      args: [
         {
           type: 'Address',
           value: account.getAddress(),
@@ -49,8 +57,8 @@ function App() {
           type: 'U256',
           value: value,
         }
-      ],
-    )
+      ]
+    })
 
     console.log("getPowInput resp:", resp);
 
@@ -61,11 +69,64 @@ function App() {
     throw new Error("get_pow_input_error:" + JSON.stringify(resp))
   }
 
+  const getTickInfoObjectID = async (tick: string): Promise<any> => {
+    const resp = await client.executeViewFunction({
+      funcId: mrc20TickInfoFunc,
+      tyArgs: [],
+      args: [
+        {
+          type: 'Object',
+          value: {
+            address: moveScriptionAddress,
+            module: 'movescription',
+            name: 'TickRegistry',
+          },
+        },
+        {
+          type: 'String',
+          value: tick,
+        }
+      ]
+    })
+
+    console.log("get_tick_info_object_id resp:", resp);
+
+    if (resp.vm_status == 'Executed') {
+      return resp.return_values?.[0]?.decoded_value;
+    }
+
+    throw new Error("get_tick_info_object_id_error:" + JSON.stringify(resp))
+  }
+
+  const getTickInfo = async (tick: string): Promise<any> => {
+    const tickInfoObjectID = await getTickInfoObjectID(tick);
+    const newData = await client.queryGlobalStates({
+      filter: {
+        object_id: tickInfoObjectID 
+      },
+      cursor: null,
+      limit: 1,
+      descending_order: true,
+    })
+
+    console.log("get_tick_info resp:", newData.data);
+
+    if (newData.data.length > 0) {
+      const tickInfo = newData.data[0].value.value;
+      return {
+        tick: tickInfo.tick,
+        difficulty: parseInt(tickInfo.difficulty as string)
+      }
+    }
+
+    throw new Error("get_tick_info_error:" + JSON.stringify(newData))
+  }
+
   const validatePow = async (account: IAccount, tick: string, value: number, difficulty: number, nonce: number) => {
-    const resp = await client.executeViewFunction(
-      mrc20PowValidateFunc,
-      [],
-      [
+    const resp = await client.executeViewFunction({
+      funcId: mrc20PowValidateFunc,
+      tyArgs: [],
+      args: [
         {
           type: 'Address',
           value: account.getAddress(),
@@ -86,8 +147,8 @@ function App() {
           type: 'U64',
           value: nonce,
         }
-      ],
-    )
+      ]
+    })
 
     console.log("validatePow resp:", resp);
 
@@ -134,15 +195,19 @@ function App() {
   const handleMint = async (account: IAccount) => {
     setMinting(true)
 
-    const tick = 'move';
-    const amount = 1000;
-    const difficulty = 4;
+    const tick = props.tick;
+    const amount = props.amount;
+
+    console.log("account address:", account.getAddress());
 
     try {
-      const result = await searchNonce(account, tick, amount, difficulty)
+      const tickInfo = await getTickInfo(tick);
+      console.log("tickInfo:", tickInfo);
+
+      const result = await searchNonce(account, tick, amount, tickInfo.difficulty)
       console.log("found nonce:", result.nonce, 'hash:', result.hash);
 
-      if (!await validatePow(account, tick, amount, difficulty, result.nonce)) {
+      if (!await validatePow(account, tick, amount, tickInfo.difficulty, result.nonce)) {
         setErrorMsg(`found nonce: ${result.nonce}, hash: ${result.hash} invalid!`)
         return
       }
@@ -193,8 +258,7 @@ function App() {
   }
 
   return (
-    <>
-      <div className="card">
+    <Box style={{display: 'flex', justifyContent: 'center'}}>
         {!minting && (
           <div>
             {mintResult && (
@@ -209,9 +273,9 @@ function App() {
               <div>Mint ok, tx: {tx}</div>
             )}
 
-            <button onClick={() => handleMint(account)}>
+            <Button variant="contained" onClick={() => handleMint(account)}>
               Mint
-            </button>
+            </Button>
           </div>
         )}
 
@@ -221,22 +285,19 @@ function App() {
               Minting...
             </div>
             <div>
-              {progress && progress.details && progress.details.map((item, index)=>(
-                <div key={"item_" + index} style={{display: 'flex', justifyContent: 'space-between'}}>
+              {progress && progress.details && progress.details.map((item: any, index: number)=>(
+                <div key={"item_" + index} style={{display: 'flex', justifyContent: 'space-between', fontFamily: "'Courier New', monospace"}}>
                   <div style={{width: '33%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>Hash: {item.hash}</div>
                   <div style={{width: '33%'}}>Nonce: {item.nonce}</div>
                   <div style={{width: '33%'}}>{humanReadableHashrate(item.hashRate)}</div>
                 </div>
               ))}
             </div>
-            <button onClick={() => handleStop()}>
+            <Button variant="contained" onClick={() => handleStop()}>
               Stop
-            </button>
+            </Button>
           </div>
         )}
-      </div>
-    </>
-  )
+    </Box>
+  );
 }
-
-export default App

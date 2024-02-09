@@ -1,9 +1,9 @@
+'use client';
+self.window = self;
+
 import Long from "long"
 import { MintPayload } from "../types"
 import { arrayify, hexlify, type BytesLike } from "@ethersproject/bytes"
-import { keccak256 } from "@ethersproject/keccak256"
-import { gpu_init, nonce_search } from './nonce-search';
-import { pow, matchDifficulty } from "../../utils/pow"
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const ctx: Worker = self as any;
@@ -69,10 +69,6 @@ async function notifyError(e: Error) {
   });
 }
 
-export const hash = (data: BytesLike): Uint8Array =>{
-  return arrayify(keccak256(data))
-}
-
 export function concatArrayAndNonce(array: Uint8Array, nonceHigh32: number, nonceLow32: number): Uint8Array {
   const highBuffer = new ArrayBuffer(4);  
   const highView = new DataView(highBuffer);
@@ -91,10 +87,6 @@ export function concatArrayAndNonce(array: Uint8Array, nonceHigh32: number, nonc
   return result;
 }
 
-export const makeKey = (powData: Uint8Array, nonceHigh: number): Uint8Array=>{
-  return concatArrayAndNonce(hash(powData), nonceHigh, 0)
-}
-
 function getHigh32Bits(num: number): number {
   return Math.floor(num / Math.pow(2, 32));
 }
@@ -104,6 +96,18 @@ function concatNonce(high: number, low: number): number {
 }
 
 const searchNonce = async (payload: MintPayload) => {
+  const { keccak256 } = await import("@ethersproject/keccak256")
+  const { pow, matchDifficulty } = await import("../../utils/pow")
+  const { gpu_init, nonce_search } = await import('./nonce-search')
+
+  const hash = (data: BytesLike): Uint8Array =>{
+    return arrayify(keccak256(data))
+  }
+
+  const makeKey = (powData: Uint8Array, nonceHigh: number): Uint8Array=>{
+    return concatArrayAndNonce(hash(powData), nonceHigh, 0)
+  }
+
   const { id, powData, difficulty, seqStart, seqEnd } = payload;
   let lastTime = new Date().getTime();
   let nonce = seqStart
@@ -113,7 +117,7 @@ const searchNonce = async (payload: MintPayload) => {
   try {
     console.log(`[Miner]: gpu init...`);
     await gpu_init();
-  } catch (e) {
+  } catch (e: any) {
     notifyError(e)
     return;
   }

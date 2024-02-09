@@ -1,7 +1,4 @@
 import { v4 as uuidv4 } from 'uuid';
-import cpuWorkerUrl from './cpu-worker/index.ts?worker&url';
-import gpuWorkerUrl from './gpu-worker/index.ts?worker&url';
-
 import { Status, IMinerTask, IMintProgress, IWorkerTask, IWorkerStatus, MAX_SEQUENCE } from './types'
 
 export class MinerManager {
@@ -43,16 +40,16 @@ export class MinerManager {
   public start() {
     // init CPU workers
     for (let i=0; i<this.cpuWorkerCount; i++) {
-      const cpuMineWorker = new Worker(cpuWorkerUrl, {
-        type: 'module'
+      const cpuMineWorker = new Worker(new URL("./cpu-worker/index.worker.ts", import.meta.url), {
+        type: "module",
       });
       this.cpuWorkers.push(cpuMineWorker)
     }
 
     // init GPU workers
     for (let i=0; i<this.gpuWorkerCount; i++) {
-      const gpuMineWorker = new Worker(gpuWorkerUrl, {
-        type: 'module'
+      const gpuMineWorker = new Worker(new URL("./gpu-worker/index.worker.ts", import.meta.url), {
+        type: "module",
       });
       this.gpuWorkers.push(gpuMineWorker)
     }
