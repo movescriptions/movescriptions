@@ -20,6 +20,10 @@ export default function MyAssets() {
 
   return (
     <Container maxWidth="lg">
+      <Typography variant="h4" component="h1" align="left" sx={{ mb: 2 }}>
+        MRC20 Assets
+      </Typography>
+
       <Box
         sx={{
           my: 4,
@@ -29,10 +33,6 @@ export default function MyAssets() {
           alignItems: 'center',
         }}
       >
-        <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
-          MRC20 Assets
-        </Typography>
-
         {roochAddress && roochAddress.data ? (
           <UserAssets address={roochAddress.data}></UserAssets>
         ) : (

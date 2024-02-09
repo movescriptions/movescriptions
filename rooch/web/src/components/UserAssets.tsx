@@ -96,7 +96,7 @@ export default function UserAssets(props: UserAssetsProps) {
       <Grid container spacing={4}>
         {items.length > 0 ? items.map((item) => (
           <Grid item xs={12} sm={6} md={4} key={item.object_id}>
-            <Card style={{ width: '100%', padding: '10px' }}>
+            <Card style={{ padding: '10px' }}>
               <CardContent>
                 <div style={{display: 'flex', justifyContent: 'space-between'}}>
                   <Chip label={item.tick} color="primary" size='small'/>
@@ -106,7 +106,7 @@ export default function UserAssets(props: UserAssetsProps) {
                   {item.value}
                 </Typography>
               </CardContent>
-              <CardActions style={{display: 'flex', justifyContent: 'space-between'}}>
+              <CardActions style={{display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px'}}>
                 <Button variant="outlined" size='small'>Transfer</Button>
                 <Button variant="outlined" size='small'>List</Button>
                 <Button variant="outlined" size='small'>Split</Button>
@@ -114,15 +114,14 @@ export default function UserAssets(props: UserAssetsProps) {
               </CardActions>
             </Card>
           </Grid>
-        )) : (
+        )) : isPending ? (
+          <CircularProgress></CircularProgress>
+        ) :(
           <Typography>No Inscription</Typography>
         )}
       </Grid>
 
-      {isPending && (
-        <CircularProgress></CircularProgress>
-      )}
-
+      
       <Snackbar open={error != null} autoHideDuration={6000}>
         <Alert severity="error">
           {error?.message}
@@ -131,7 +130,7 @@ export default function UserAssets(props: UserAssetsProps) {
 
       <Box style={{display: 'flex', justifyContent: 'center', marginTop: '10px'}}>
         <ButtonGroup variant="contained" aria-label="Basic button group">
-          {hasMore && (
+          {!isPending && hasMore && (
             <Button onClick={handleLoadMore} variant="contained">Load More</Button>
           )}
         </ButtonGroup>

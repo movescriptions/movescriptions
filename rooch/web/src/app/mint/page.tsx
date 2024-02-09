@@ -12,12 +12,12 @@ export default function Mint() {
 
   return (
     <Container maxWidth="lg">
-      <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
+      <Typography variant="h4" component="h1" align="left" sx={{ mb: 2 }}>
         Mint
       </Typography>
 
       {sessionAccount ? (
-        <MintTick account={sessionAccount} tick='move' amount={1000} difficulty={3}/>
+        <MintTick account={sessionAccount} tick='move' amount={1000}/>
       ):(
         <Typography>Please connect wallet to view assets.</Typography>
       )}

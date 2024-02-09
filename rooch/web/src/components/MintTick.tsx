@@ -16,6 +16,7 @@ import { useRoochClient } from '@roochnetwork/rooch-sdk-kit'
 
 
 const moveScriptionAddress = `${movescriptionConfig.movescriptionAddress}`
+const mrc20TickInfoFunc = `${moveScriptionAddress}::movescription::get_tick_info`
 const mrc20PowInputFunc = `${moveScriptionAddress}::movescription::pow_input`
 const mrc20PowValidateFunc = `${moveScriptionAddress}::movescription::validate_pow`
 const mrc20MintFunc = `${moveScriptionAddress}::mrc20::mint`
@@ -27,7 +28,6 @@ export type MintTickProps = {
   account: IAccount,
   tick: string,
   amount: number,
-  difficulty: number,
 }
 
 export default function MintTick(props: MintTickProps) {
@@ -67,6 +67,59 @@ export default function MintTick(props: MintTickProps) {
     }
 
     throw new Error("get_pow_input_error:" + JSON.stringify(resp))
+  }
+
+  const getTickInfoObjectID = async (tick: string): Promise<any> => {
+    const resp = await client.executeViewFunction({
+      funcId: mrc20TickInfoFunc,
+      tyArgs: [],
+      args: [
+        {
+          type: 'Object',
+          value: {
+            address: moveScriptionAddress,
+            module: 'movescription',
+            name: 'TickRegistry',
+          },
+        },
+        {
+          type: 'String',
+          value: tick,
+        }
+      ]
+    })
+
+    console.log("get_tick_info_object_id resp:", resp);
+
+    if (resp.vm_status == 'Executed') {
+      return resp.return_values?.[0]?.decoded_value;
+    }
+
+    throw new Error("get_tick_info_object_id_error:" + JSON.stringify(resp))
+  }
+
+  const getTickInfo = async (tick: string): Promise<any> => {
+    const tickInfoObjectID = await getTickInfoObjectID(tick);
+    const newData = await client.queryGlobalStates({
+      filter: {
+        object_id: tickInfoObjectID 
+      },
+      cursor: null,
+      limit: 1,
+      descending_order: true,
+    })
+
+    console.log("get_tick_info resp:", newData.data);
+
+    if (newData.data.length > 0) {
+      const tickInfo = newData.data[0].value.value;
+      return {
+        tick: tickInfo.tick,
+        difficulty: parseInt(tickInfo.difficulty as string)
+      }
+    }
+
+    throw new Error("get_tick_info_error:" + JSON.stringify(newData))
   }
 
   const validatePow = async (account: IAccount, tick: string, value: number, difficulty: number, nonce: number) => {
@@ -144,15 +197,17 @@ export default function MintTick(props: MintTickProps) {
 
     const tick = props.tick;
     const amount = props.amount;
-    const difficulty = props.difficulty;
 
     console.log("account address:", account.getAddress());
 
     try {
-      const result = await searchNonce(account, tick, amount, difficulty)
+      const tickInfo = await getTickInfo(tick);
+      console.log("tickInfo:", tickInfo);
+
+      const result = await searchNonce(account, tick, amount, tickInfo.difficulty)
       console.log("found nonce:", result.nonce, 'hash:', result.hash);
 
-      if (!await validatePow(account, tick, amount, difficulty, result.nonce)) {
+      if (!await validatePow(account, tick, amount, tickInfo.difficulty, result.nonce)) {
         setErrorMsg(`found nonce: ${result.nonce}, hash: ${result.hash} invalid!`)
         return
       }
