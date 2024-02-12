@@ -7,7 +7,7 @@ module smartinscription::movescription {
     use sui::tx_context::{Self, TxContext};
     use sui::event::emit;
     use sui::coin::{Self, Coin};
-    use sui::balance::{Self, Balance};
+    use sui::balance::{Self, Balance, Supply};
     use sui::table::{Self, Table};
     use sui::sui::SUI;
     use sui::clock::{Clock};
@@ -24,12 +24,15 @@ module smartinscription::movescription {
     friend smartinscription::epoch_bus_factory;
     friend smartinscription::init;
     friend smartinscription::mint_get_factory;
+    friend smartinscription::movecoin;
+    friend smartinscription::movescription_to_amm;
 
 
     // ======== Constants =========
     const VERSION: u64 = 4;
     const PROTOCOL_START_TIME_MS: u64 = 1704038400*1000;
     const MOVE_TICK_TOTAL_SUPPLY: u64 = 100_0000_0000;
+    const TREASURY_FIELD_NAME: vector<u8> = b"treasury";
     
     // ======== Errors =========
     const ErrorTickAlreadyExists: u64 = 2;
@@ -44,6 +47,8 @@ module smartinscription::movescription {
     const ErrorNotWitness: u64 = 24;
     const ErrorCanNotBurnByOwner: u64 = 26;
     const ErrorNotZero: u64 = 27;
+    const ErrorInvalidCoinType: u64 = 28;
+    const ErrorTreasuryAlreadyInit: u64 = 29;
 
     // ======== Types =========
     struct Movescription has key, store {
@@ -109,6 +114,13 @@ module smartinscription::movescription {
         id: UID,
         tick: String,
         amount: u64,
+    }
+
+    struct MCoin<phantom T> has drop{}
+
+    struct Treasury<phantom T> has store{
+        supply: Supply<MCoin<T>>,
+        coin_type: String,
     }
 
     // ======== Events =========
@@ -516,6 +528,76 @@ module smartinscription::movescription {
         inject_sui(inscription, receive);
     }
 
+    // ===== Treasury functions =====
+
+    fun add_treasury<T: drop>(tick_record: &mut TickRecordV2, treasury: Treasury<T>){
+        df::add(&mut tick_record.id, TREASURY_FIELD_NAME, treasury);
+    }
+
+    fun borrow_mut_treasury<T: drop>(tick_record: &mut TickRecordV2) : &mut Treasury<T> {
+        df::borrow_mut(&mut tick_record.id, TREASURY_FIELD_NAME)
+    }
+
+    fun borrow_treasury<T: drop>(tick_record: &TickRecordV2) : &Treasury<T> {
+        df::borrow(&tick_record.id, TREASURY_FIELD_NAME)
+    }
+
+    public fun is_treasury_inited(tick_record: &TickRecordV2): bool{
+        df::exists_(&tick_record.id, TREASURY_FIELD_NAME)
+    }
+
+    public fun check_coin_type<T: drop>(tick_record: &TickRecordV2): bool{
+        let treasury = borrow_treasury<T>(tick_record);
+        let type_name = type_util::type_to_name<T>();
+        type_name == treasury.coin_type
+    }
+
+    public(friend) fun init_treasury<T: drop>(tick_record: &mut TickRecordV2) {
+        assert!(!df::exists_(&tick_record.id, TREASURY_FIELD_NAME), ErrorTreasuryAlreadyInit);
+        let struct_name = type_util::struct_name<T>();
+        assert!(tick_record.tick == struct_name, ErrorInvalidCoinType);
+        let type_name = type_util::type_to_name<T>();
+        let treasury = Treasury { supply: balance::create_supply(MCoin<T>{}), coin_type: type_name };
+        add_treasury(tick_record, treasury);
+    }
+
+    public(friend) fun movescription_to_coin<T: drop>(
+        tick_record: &mut TickRecordV2, 
+        movescription: Movescription):(Balance<SUI>, Option<Movescription>, Option<Metadata>, Balance<MCoin<T>>){
+        assert!(tick_record.tick == movescription.tick, ErrorNotSameTick);
+        assert!(movescription.attach_coin == 0, ErrorAttachDFExists);
+    
+        let locked_movescription = if(contains_locked(&movescription)){
+            option::some(unlock_box(&mut movescription))
+        }else{
+            option::none()
+        };
+        let Movescription { id, amount: amount, tick: _, attach_coin:_, acc, metadata:metadata } = movescription;
+        object::delete(id);
+        let treasury = borrow_mut_treasury<T>(tick_record);
+        let balance_t = balance::increase_supply(&mut treasury.supply, amount);
+        (acc, locked_movescription, metadata, balance_t) 
+    }
+
+    public(friend) fun coin_to_movescription<T: drop>(
+        tick_record: &mut TickRecordV2, 
+        acc: Balance<SUI>, 
+        locked: Option<Movescription>, 
+        metadata: Option<Metadata>, 
+        balance_t: Balance<MCoin<T>>, 
+        ctx: &mut TxContext):(Movescription){
+        let treasury = borrow_mut_treasury<T>(tick_record);
+        let amount = balance::decrease_supply(&mut treasury.supply, balance_t);
+        let movescription = new_movescription(amount, tick_record.tick, acc, metadata, ctx);
+        if(option::is_some(&locked)){
+            let locked = option::destroy_some(locked);
+            lock_within(&mut movescription, locked);
+        }else{
+            option::destroy_none(locked);
+        };
+        movescription
+    }
+
     // ===== Dynamic Field functions =====
 
     /// Add the `Value` type dynamic field to the movescription
@@ -645,6 +727,10 @@ module smartinscription::movescription {
 
     public fun tick_record_add_df<V: store, W: drop>(tick_record: &mut TickRecordV2, value: V, _witness: W) {
         type_util::assert_witness<W>(tick_record.mint_factory);
+        tick_record_add_df_internal(tick_record, value);
+    }
+
+    public(friend) fun tick_record_add_df_internal<V: store>(tick_record: &mut TickRecordV2, value: V) {
         let name = type_util::type_to_name<V>();
         df::add(&mut tick_record.id, name, value);
     }
@@ -657,6 +743,10 @@ module smartinscription::movescription {
 
     public fun tick_record_borrow_mut_df<V: store, W: drop>(tick_record: &mut TickRecordV2, _witness: W) : &mut V {
         type_util::assert_witness<W>(tick_record.mint_factory);
+        tick_record_borrow_mut_df_internal(tick_record)
+    }
+
+    public(friend) fun tick_record_borrow_mut_df_internal<V: store>(tick_record: &mut TickRecordV2) : &mut V {
         let name = type_util::type_to_name<V>();
         df::borrow_mut(&mut tick_record.id, name)
     }
