@@ -221,7 +221,7 @@ module smartinscription::movescription_to_amm{
         let amount_b = balance::value(&balance_b);
         let a2b = amount_a >0;
 
-        let amount = if (a2b) amount_a else amount_b;
+        let amount = if (a2b) amount_a/2 else amount_b/2;
         let current_sqrt_price = pool::current_sqrt_price(pool);
         let (receive_a, receive_b, flash_receipt) = pool::flash_swap<CoinTypeA, CoinTypeB>(
             config,
