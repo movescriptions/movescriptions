@@ -7,6 +7,7 @@ module smartinscription::movescription_to_amm{
     use sui::coin;
     use sui::table::{Self, Table};
     use sui::transfer;
+    use sui::math;
     use cetus_clmm::factory::{Self, Pools};
     use cetus_clmm::pool::{Self, Pool};
     use cetus_clmm::position::{Self, Position};
@@ -16,6 +17,7 @@ module smartinscription::movescription_to_amm{
     use smartinscription::movescription::{Self, Movescription, MCoin, TickRecordV2};
 
     const CETUS_TICK_SPACING: u32 = 200;
+    const SUI_DECIMALS: u64 = 9;
 
     const ErrorTreasuryNotInited: u64 = 1;
     const ErrorCoinTypeMissMatch: u64 = 2;
@@ -41,7 +43,9 @@ module smartinscription::movescription_to_amm{
         let amount_b = balance::value(&balance_b);
         assert!(amount_a > 0, ErrorInvalidInitLiquidity);
         assert!(amount_b > 0, ErrorInvalidInitLiquidity);
-        let initialize_price = (amount_a as u128) / (amount_b as u128);
+        let a_decimals = movescription::mcoin_decimals();
+        let b_decimals = SUI_DECIMALS;
+        let initialize_price = price_to_sqrt_price_x64(amount_a, amount_b, a_decimals, b_decimals);
 
         let (position, coin_a, coin_b) = factory::create_pool_with_liquidity<MCoin<T>,SUI>(
             pools, config, CETUS_TICK_SPACING, initialize_price, std::string::utf8(b""), 
@@ -105,11 +109,23 @@ module smartinscription::movescription_to_amm{
     }
 
     public entry fun remove_liquidity<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, delta_liquidity: u128, clk: &Clock, ctx: &mut TxContext){
-        let movescription = do_remove_liquidity(config, pool, tick_record, delta_liquidity, clk, ctx);
-        transfer::public_transfer(movescription, tx_context::sender(ctx));
+        let (movescription, balance_t) = do_remove_liquidity(config, pool, tick_record, delta_liquidity, clk, ctx);
+        let sender = tx_context::sender(ctx);
+        transfer::public_transfer(movescription, sender);
+        if(balance::value(&balance_t)>0){
+            transfer::public_transfer(coin::from_balance(balance_t, ctx), sender);
+        }else{
+            balance::destroy_zero(balance_t);
+        };
     }
 
-    public fun do_remove_liquidity<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, delta_liquidity: u128, clk: &Clock, ctx: &mut TxContext) : Movescription{
+    public fun do_remove_liquidity<T: drop>(
+        config: &GlobalConfig, 
+        pool: &mut Pool<MCoin<T>,SUI>, 
+        tick_record: &mut TickRecordV2,
+        delta_liquidity: u128, 
+        clk: &Clock, 
+        ctx: &mut TxContext) : (Movescription, Balance<MCoin<T>>){
         assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
         assert!(movescription::tick_record_exists_df<Positions>(tick_record), ErrorPoolNotInited);
         let positions = movescription::tick_record_borrow_mut_df_internal<Positions>(tick_record);
@@ -117,16 +133,26 @@ module smartinscription::movescription_to_amm{
         assert!(table::contains(&positions.positions, sender), ErrorNoLiquidity);
         let position_nft = table::borrow_mut(&mut positions.positions, sender);
         let (balance_a, balance_b) = pool::remove_liquidity(config, pool, position_nft, delta_liquidity, clk);
-        let movescription = movescription::coin_to_movescription(tick_record, balance_b, option::none(), option::none(), balance_a, ctx);
-        movescription
+        let (movescription, remain_balance_a) = movescription::coin_to_movescription(tick_record, balance_b, option::none(), option::none(), balance_a, ctx);
+        (movescription, remain_balance_a)
     }
 
     public entry fun remove_all_liquidity<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, clk: &Clock, ctx: &mut TxContext){
-        let movescription = do_remove_all_liquidity(config, pool, tick_record, clk, ctx);
+        let (movescription, balance_t) = do_remove_all_liquidity(config, pool, tick_record, clk, ctx);
         transfer::public_transfer(movescription, tx_context::sender(ctx));
+        let sender = tx_context::sender(ctx);
+        if(balance::value(&balance_t)>0){
+            transfer::public_transfer(coin::from_balance(balance_t, ctx), sender);
+        }else{
+            balance::destroy_zero(balance_t);
+        };
     }
 
-    public fun do_remove_all_liquidity<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, clk: &Clock, ctx: &mut TxContext) : Movescription{
+    public fun do_remove_all_liquidity<T: drop>(
+        config: &GlobalConfig, 
+        pool: &mut Pool<MCoin<T>,SUI>, 
+        tick_record: &mut TickRecordV2, 
+        clk: &Clock, ctx: &mut TxContext) : (Movescription, Balance<MCoin<T>>){
         assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
         assert!(movescription::tick_record_exists_df<Positions>(tick_record), ErrorPoolNotInited);
         let positions = movescription::tick_record_borrow_mut_df_internal<Positions>(tick_record);
@@ -136,8 +162,8 @@ module smartinscription::movescription_to_amm{
         let liquidity = position::liquidity(&position_nft);
         let (balance_a, balance_b) = pool::remove_liquidity(config, pool, &mut position_nft, liquidity, clk);
         pool::close_position(config, pool, position_nft);
-        let movescription = movescription::coin_to_movescription(tick_record, balance_b, option::none(), option::none(), balance_a, ctx);
-        movescription
+        let (movescription, remain_balance_a) = movescription::coin_to_movescription(tick_record, balance_b, option::none(), option::none(), balance_a, ctx);
+        (movescription, remain_balance_a)
     }
 
     public entry fun collect_fee<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, ctx: &mut TxContext){
@@ -265,5 +291,53 @@ module smartinscription::movescription_to_amm{
         option::destroy_none(locked);
         option::destroy_none(metadata);
         (balance_t, balance_sui)
+    }
+
+    const POW_2_64: u128 = 18446744073709551616;
+    const POW_10_18: u128 = 1000000000000000000;
+    const POW_10_9: u128 = 1000000000;
+    ///https://github.com/CetusProtocol/cetus-clmm-sui-sdk/blob/a28b7220b7ef4fd3ec361abfddd0aaf9413946d8/src/math/tick.ts#L164
+    fun price_to_sqrt_price_x64(a_amount: u64, b_amount: u64, a_decimals: u64, b_decimals: u64) : u128{
+        let a = (a_amount as u128);
+        let b = (b_amount as u128);
+        let decimal_diff = (math::diff(a_decimals, b_decimals) as u8);
+        let sqrt_price = math::sqrt_u128(a * (math::pow(10, (decimal_diff as u8)) as u128) * POW_10_18/ b)*POW_2_64/POW_10_9;
+        sqrt_price
+    }
+
+    #[test]
+    fun test_price_to_sqrt_price_x64(){
+        let a_amount = 500_000000000;
+        let b_amount = 100_000000000;
+        let a_decimals = 9;
+        let b_decimals = 9;
+        let sqrt_price = price_to_sqrt_price_x64(a_amount, b_amount, a_decimals, b_decimals);
+        std::debug::print(&sqrt_price);
+        //js result:
+        // console.log(TickMath.priceToSqrtPriceX64(
+        //     d(500_000000000.0000000000/100_000000000.00000000),
+        //     9,
+        //     9
+        //     ).toString());
+        //41248173712355948587
+        assert!(sqrt_price == 41248173703136455967, 1);
+    }
+
+    #[test]
+    fun test_price_to_sqrt_price_x64_float(){
+        let a_amount = 50_000000000;
+        let b_amount = 100_000000000;
+        let a_decimals = 9;
+        let b_decimals = 9;
+        let sqrt_price = price_to_sqrt_price_x64(a_amount, b_amount, a_decimals, b_decimals);
+        std::debug::print(&sqrt_price);
+        //js result:
+        // console.log(TickMath.priceToSqrtPriceX64(
+        //     d(500_000000000.0000000000/100_000000000.00000000),
+        //     9,
+        //     9
+        //     ).toString());
+        //13043817825332782212
+        assert!(sqrt_price == 13043817821891587772, 1);
     }
 }

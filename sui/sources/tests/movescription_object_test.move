@@ -234,4 +234,48 @@ module smartinscription::movescription_object_test{
         let acc_balance = balance::create_for_testing<SUI>(acc); 
         movescription::new_movescription_for_testing(amount, tick, acc_balance, option::none(), ctx)
     }
+
+    #[test_only]
+    struct MOVE has drop{}
+
+    #[test]
+    fun movescription_to_coin_test(){
+        let ctx = tx_context::dummy();
+        let tick = string(b"MOVE");
+        let tick_record = movescription::new_tick_record_for_testing(tick, 10000, 1000, true, WITNESS{}, &mut ctx);
+        movescription::init_treasury_for_testing<MOVE>(&mut tick_record, MOVE{});
+        let acc = balance::create_for_testing<SUI>(100);
+        let amount = 100;
+        let move_movescription = movescription::do_mint_with_witness(&mut tick_record, acc, amount, option::none(), WITNESS{}, &mut ctx);
+        let (balance_sui, locked, metadata, balance_t) = movescription::movescription_to_coin_for_testing<MOVE>(&mut tick_record, move_movescription);
+        assert!(movescription::coin_supply<MOVE>(&tick_record) == balance::value(&balance_t), 0);
+        let (move_movescription, remain_balance) = movescription::coin_to_movescription_for_testing<MOVE>(&mut tick_record, balance_sui, locked, metadata, balance_t, &mut ctx);
+        balance::destroy_zero(remain_balance);
+        assert!(movescription::amount(&move_movescription) == amount, 1);
+        movescription::drop_movescription_for_testing(move_movescription);
+        movescription::drop_tick_record_for_testing(tick_record);
+    }
+
+    #[test]
+    fun movescription_to_coin_test_remain(){
+        let ctx = tx_context::dummy();
+        let tick = string(b"MOVE");
+        let tick_record = movescription::new_tick_record_for_testing(tick, 10000, 1000, true, WITNESS{}, &mut ctx);
+        movescription::init_treasury_for_testing<MOVE>(&mut tick_record, MOVE{});
+        let acc = balance::create_for_testing<SUI>(100);
+        let amount = 100;
+        let move_movescription = movescription::do_mint_with_witness(&mut tick_record, acc, amount, option::none(), WITNESS{}, &mut ctx);
+        let (balance_sui, locked, metadata, balance_t) = movescription::movescription_to_coin_for_testing<MOVE>(&mut tick_record, move_movescription);
+        let split_t = balance::split(&mut balance_t, 1);
+        let (move_movescription, remain_balance) = movescription::coin_to_movescription_for_testing<MOVE>(&mut tick_record, balance_sui, locked, metadata, balance_t, &mut ctx);
+        balance::join(&mut remain_balance, split_t);
+        assert!(movescription::amount(&move_movescription) == amount - 1 , 1);
+        let (move_movescription2, remain_balance2) = movescription::coin_to_movescription_for_testing<MOVE>(&mut tick_record, balance::zero<SUI>(), option::none(), option::none(), remain_balance, &mut ctx); 
+        balance::destroy_zero(remain_balance2);
+        movescription::merge(&mut move_movescription, move_movescription2);
+        assert!(movescription::amount(&move_movescription) == amount, 2); 
+
+        movescription::drop_movescription_for_testing(move_movescription);
+        movescription::drop_tick_record_for_testing(tick_record);
+    }
 }
