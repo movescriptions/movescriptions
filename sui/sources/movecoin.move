@@ -3,6 +3,8 @@ module smartinscription::movecoin{
     use smartinscription::assert_util;
     use smartinscription::tick_name;
 
+    friend smartinscription::init;
+
     struct MOVE has drop {}
 
     public(friend) fun init_movecoin(tick_record: &mut TickRecordV2) {
