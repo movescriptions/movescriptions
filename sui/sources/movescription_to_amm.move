@@ -14,6 +14,7 @@ module smartinscription::movescription_to_amm{
     use cetus_clmm::config::{GlobalConfig};
     use cetus_clmm::tick_math;
     use cetus_clmm::clmm_math;
+    use integer_mate::i32;
     use smartinscription::movescription::{Self, Movescription, MCoin, TickRecordV2};
 
     const CETUS_TICK_SPACING: u32 = 200;
@@ -89,8 +90,8 @@ module smartinscription::movescription_to_amm{
             let position_nft = pool::open_position(
                 config,
                 pool,
-                tick_math::tick_bound(),
-                tick_math::tick_bound(),
+                CETUS_MIN_TICK_U32, 
+                CETUS_MAX_TICK_U32,
                 ctx
             );
             let (remain_balance_a, remain_balance_b) = add_liquidity_with_swap(config, pool, &mut position_nft, balance_a, balance_b, clk);
@@ -210,13 +211,14 @@ module smartinscription::movescription_to_amm{
         let amount_b = balance::value(&balance_b);
         let current_tick_index = pool::current_tick_index(pool);
         let current_sqrt_price = pool::current_sqrt_price(pool);
+        let (lower, upper) = position::tick_range(position_nft);
         let delta_liquidity = {
-            let (liqudity, l_amount_a, l_amount_b) = clmm_math::get_liquidity_by_amount(tick_math::min_tick(), tick_math::max_tick(), current_tick_index, current_sqrt_price, amount_b, false);
-            if(l_amount_a >= amount_a && l_amount_b >= amount_b){
+            let (liqudity, l_amount_a, l_amount_b) = clmm_math::get_liquidity_by_amount(lower, upper, current_tick_index, current_sqrt_price, amount_b, false);
+            if(l_amount_a <= amount_a && l_amount_b <= amount_b){
                 liqudity
             }else{
-                let (liqudity, l_amount_a, l_amount_b) = clmm_math::get_liquidity_by_amount(tick_math::min_tick(), tick_math::max_tick(), current_tick_index, current_sqrt_price, amount_a, true);
-                assert!(l_amount_a >= amount_a && l_amount_b >= amount_b, ErrorInvalidState);
+                let (liqudity, l_amount_a, l_amount_b) = clmm_math::get_liquidity_by_amount(lower, upper, current_tick_index, current_sqrt_price, amount_a, true);
+                assert!(l_amount_a <= amount_a && l_amount_b <= amount_b, ErrorInvalidState);
                 liqudity
             }
         };
@@ -307,8 +309,6 @@ module smartinscription::movescription_to_amm{
     }
 
     #[test_only]
-    use integer_mate::i32;
-    #[test_only]
     fun check_postion_tick_range(lower: u32, upper: u32, tick_spacing: u32){
         let lower_i32 = i32::from_u32(lower);
         let upper_i32 = i32::from_u32(upper);
@@ -386,6 +386,11 @@ module smartinscription::movescription_to_amm{
         let tick_at_sqrt_price = tick_math::get_tick_at_sqrt_price(sqrt_price);
         std::debug::print(&tick_at_sqrt_price);
         let (liqudity, a_result, b_result) = clmm_math::get_liquidity_by_amount(i32::from_u32(CETUS_MIN_TICK_U32), i32::from_u32(CETUS_MAX_TICK_U32), tick_at_sqrt_price, sqrt_price, a_amount, true);
+        std::debug::print(&liqudity);
+        std::debug::print(&a_result);
+        std::debug::print(&b_result);
+
+        let (liqudity, a_result, b_result) = clmm_math::get_liquidity_by_amount(i32::from_u32(CETUS_MIN_TICK_U32), i32::from_u32(CETUS_MAX_TICK_U32), tick_at_sqrt_price, sqrt_price, b_amount, false);
         std::debug::print(&liqudity);
         std::debug::print(&a_result);
         std::debug::print(&b_result);
