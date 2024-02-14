@@ -385,6 +385,14 @@ module smartinscription::movescription_to_amm{
         std::debug::print(&sqrt_price);
         let tick_at_sqrt_price = tick_math::get_tick_at_sqrt_price(sqrt_price);
         std::debug::print(&tick_at_sqrt_price);
+        let (liqudity, a_result, b_result) = clmm_math::get_liquidity_by_amount(i32::from_u32(CETUS_MIN_TICK_U32), i32::from_u32(CETUS_MAX_TICK_U32), tick_at_sqrt_price, sqrt_price, b_amount, false);
+        std::debug::print(&liqudity);
+        std::debug::print(&a_result);
+        std::debug::print(&b_result);
+        let (liqudity, a_result, b_result) = clmm_math::get_liquidity_by_amount(i32::from_u32(CETUS_MIN_TICK_U32), i32::from_u32(CETUS_MAX_TICK_U32), tick_at_sqrt_price, sqrt_price, a_amount, true);
+        std::debug::print(&liqudity);
+        std::debug::print(&a_result);
+        std::debug::print(&b_result);
     }
 
     #[test]
