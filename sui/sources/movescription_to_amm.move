@@ -78,7 +78,6 @@ module smartinscription::movescription_to_amm{
         assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
         assert!(movescription::tick_record_exists_df<Positions>(tick_record), ErrorPoolNotInited);
         let (balance_a, balance_b) = movescription_to_lpt<T>(tick_record, movescription);
-        //TODO auto swap between SUI and MCoin<T>
         let positions = movescription::tick_record_borrow_mut_df_internal<Positions>(tick_record);
         let sender = tx_context::sender(ctx);
         let (remain_balance_a, remain_balance_b) = if(table::contains(&positions.positions, sender)){
