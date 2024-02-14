@@ -4,7 +4,7 @@ module smartinscription::movescription_to_amm{
     use sui::clock::Clock;
     use sui::sui::SUI;
     use sui::balance::{Self, Balance};
-    use sui::coin;
+    use sui::coin::{Self, Coin};
     use sui::table::{Self, Table};
     use sui::transfer;
     use sui::math;
@@ -14,7 +14,7 @@ module smartinscription::movescription_to_amm{
     use cetus_clmm::config::{GlobalConfig};
     use cetus_clmm::tick_math;
     use cetus_clmm::clmm_math;
-    use integer_mate::i32;
+    use integer_mate::i32::{Self, I32};
     use smartinscription::movescription::{Self, Movescription, MCoin, TickRecordV2};
 
     const CETUS_TICK_SPACING: u32 = 200;
@@ -46,9 +46,9 @@ module smartinscription::movescription_to_amm{
         let amount_b = balance::value(&balance_b);
         assert!(amount_a > 0, ErrorInvalidInitLiquidity);
         assert!(amount_b > 0, ErrorInvalidInitLiquidity);
-        let a_decimals = movescription::mcoin_decimals();
-        let b_decimals = SUI_DECIMALS;
-        let initialize_price = price_to_sqrt_price_x64(amount_a, amount_b, a_decimals, b_decimals);
+        let decimals_a = movescription::mcoin_decimals();
+        let decimals_b = SUI_DECIMALS;
+        let initialize_price = price_to_sqrt_price_x64(amount_a, amount_b, decimals_a, decimals_b);
 
         let (position, coin_a, coin_b) = factory::create_pool_with_liquidity<MCoin<T>,SUI>(
             pools, config, CETUS_TICK_SPACING, initialize_price, std::string::utf8(b""), 
@@ -160,10 +160,11 @@ module smartinscription::movescription_to_amm{
         let positions = movescription::tick_record_borrow_mut_df_internal<Positions>(tick_record);
         let sender = tx_context::sender(ctx);
         assert!(table::contains(&positions.positions, sender), ErrorNoLiquidity);
-        let position_nft = table::remove(&mut positions.positions, sender);
-        let liquidity = position::liquidity(&position_nft);
-        let (balance_a, balance_b) = pool::remove_liquidity(config, pool, &mut position_nft, liquidity, clk);
-        pool::close_position(config, pool, position_nft);
+        let position_nft = table::borrow_mut(&mut positions.positions, sender);
+        let liquidity = position::liquidity(position_nft);
+        let (balance_a, balance_b) = pool::remove_liquidity(config, pool, position_nft, liquidity, clk);
+        //it is hard to clean all the liquidity, so we do not close the position.
+        //pool::close_position(config, pool, position_nft);
         let (movescription, remain_balance_a) = movescription::coin_to_movescription(tick_record, balance_b, option::none(), option::none(), balance_a, ctx);
         (movescription, remain_balance_a)
     }
@@ -184,6 +185,27 @@ module smartinscription::movescription_to_amm{
         pool::collect_fee(config, pool, position_nft, true)
     }
 
+    public entry fun buy<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, sui: Coin<SUI>, clk: &Clock, ctx: &mut TxContext){
+        let (balance_t, balance_sui) = do_buy(config, pool, tick_record, sui, clk);
+        let sender = tx_context::sender(ctx);
+        if(balance::value(&balance_sui) > 0){
+            transfer::public_transfer(coin::from_balance(balance_sui, ctx), sender);
+        }else{
+            balance::destroy_zero(balance_sui);
+        };
+        if(balance::value(&balance_t) > 0){
+            transfer::public_transfer(coin::from_balance(balance_t, ctx), sender);
+        }else{
+            balance::destroy_zero(balance_t);
+        };
+    }
+
+    public fun do_buy<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, sui: Coin<SUI>, clk: &Clock) : (Balance<MCoin<T>>, Balance<SUI>){
+        assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
+        assert!(movescription::tick_record_exists_df<Positions>(tick_record), ErrorPoolNotInited);
+        swap(config, pool, balance::zero<MCoin<T>>(), coin::into_balance(sui), false, clk)
+    }
+
     fun add_liquidity_with_swap<T:drop>(
         config: &GlobalConfig, 
         pool: &mut Pool<MCoin<T>,SUI>, 
@@ -191,12 +213,20 @@ module smartinscription::movescription_to_amm{
         balance_a: Balance<MCoin<T>>, 
         balance_b: Balance<SUI>, 
         clk: &Clock):(Balance<MCoin<T>>, Balance<SUI>){
-        let (remain_balance_a, remain_balance_b) = add_liquidity_internal(config, pool, position_nft, balance_a, balance_b, clk);
-        if(balance::value(&remain_balance_a) > 0 || balance::value(&remain_balance_b) > 0){
-            let (swap_balance_a, swap_balance_b) = swap(config, pool, remain_balance_a, remain_balance_b, clk);
-            add_liquidity_internal(config, pool, position_nft, swap_balance_a, swap_balance_b, clk)
-        }else{
+        if(balance::value(&balance_a) == 0 || balance::value(&balance_b) == 0){
+            let a2b = balance::value(&balance_a) != 0; 
+            let (swap_balance_a, swap_balance_b) = swap(config, pool, balance_a, balance_b, a2b, clk);
+            let (remain_balance_a, remain_balance_b, _) = add_liquidity_internal(config, pool, position_nft, swap_balance_a, swap_balance_b, clk);
             (remain_balance_a, remain_balance_b)
+        }else{
+            let (remain_balance_a, remain_balance_b, is_fixed_a) = add_liquidity_internal(config, pool, position_nft, balance_a, balance_b, clk);
+            if(balance::value(&remain_balance_a) > 0 || balance::value(&remain_balance_b) > 0){
+                let (swap_balance_a, swap_balance_b) = swap(config, pool, remain_balance_a, remain_balance_b, !is_fixed_a, clk);
+                let (remain_balance_a, remain_balance_b, _) = add_liquidity_internal(config, pool, position_nft, swap_balance_a, swap_balance_b, clk);
+                (remain_balance_a, remain_balance_b)
+            }else{
+                (remain_balance_a, remain_balance_b)
+            }
         }
     }
 
@@ -206,37 +236,36 @@ module smartinscription::movescription_to_amm{
         position_nft: &mut Position, 
         balance_a: Balance<MCoin<T>>, 
         balance_b: Balance<SUI>, 
-        clk: &Clock):(Balance<MCoin<T>>, Balance<SUI>){
+        clk: &Clock):(Balance<MCoin<T>>, Balance<SUI>, bool){
         let amount_a = balance::value(&balance_a);
         let amount_b = balance::value(&balance_b);
         let current_tick_index = pool::current_tick_index(pool);
         let current_sqrt_price = pool::current_sqrt_price(pool);
         let (lower, upper) = position::tick_range(position_nft);
-        let delta_liquidity = {
-            let (liqudity, l_amount_a, l_amount_b) = clmm_math::get_liquidity_by_amount(lower, upper, current_tick_index, current_sqrt_price, amount_b, false);
-            if(l_amount_a <= amount_a && l_amount_b <= amount_b){
-                liqudity
-            }else{
-                let (liqudity, l_amount_a, l_amount_b) = clmm_math::get_liquidity_by_amount(lower, upper, current_tick_index, current_sqrt_price, amount_a, true);
-                assert!(l_amount_a <= amount_a && l_amount_b <= amount_b, ErrorInvalidState);
-                liqudity
-            }
-        };
+        let (delta_liquidity,_, _, is_fixed_a) = get_liquidity_by_amount(lower, upper, current_tick_index, current_sqrt_price, amount_a, amount_b); 
         let receipt = pool::add_liquidity(config, pool, position_nft, delta_liquidity, clk);
         let (receipt_amount_a, receipt_amount_b) = pool::add_liquidity_pay_amount(&receipt);
-        if(amount_a == receipt_amount_a && amount_b == receipt_amount_b){
-            pool::repay_add_liquidity(config, pool, balance_a, balance_b, receipt);
-            (balance::zero<MCoin<T>>(), balance::zero<SUI>())
-        }else if(amount_b == receipt_amount_b){
-            let new_balance_a = balance::split(&mut balance_a, receipt_amount_a);
-            pool::repay_add_liquidity(config, pool, new_balance_a, balance_b, receipt);
-            (balance_a, balance::zero<SUI>())
-        }else if(amount_a == receipt_amount_a){
-            let new_balance_b = balance::split(&mut balance_b, receipt_amount_b);
-            pool::repay_add_liquidity(config, pool, balance_a, new_balance_b, receipt);
-            (balance::zero<MCoin<T>>(), balance_b)
+        let new_balance_a = balance::split(&mut balance_a, receipt_amount_a);
+        let new_balance_b = balance::split(&mut balance_b, receipt_amount_b);
+        pool::repay_add_liquidity(config, pool, new_balance_a, new_balance_b, receipt);
+        (balance_a, balance_b, is_fixed_a)
+    }
+
+    fun get_liquidity_by_amount(
+        lower_index: I32,
+        upper_index: I32,
+        current_tick_index: I32,
+        current_sqrt_price: u128,
+        amount_a: u64,
+        amount_b: u64,
+    ): (u128, u64, u64, bool) {
+        let (liqudity, l_amount_a, l_amount_b) = clmm_math::get_liquidity_by_amount(lower_index, upper_index, current_tick_index, current_sqrt_price, amount_b, false);
+        if(l_amount_a <= amount_a && l_amount_b <= amount_b){
+            (liqudity, l_amount_a, l_amount_b, false)
         }else{
-            abort ErrorInvalidState
+            let (liqudity, l_amount_a, l_amount_b) = clmm_math::get_liquidity_by_amount(lower_index, upper_index, current_tick_index, current_sqrt_price, amount_a, true);
+            assert!(l_amount_a <= amount_a && l_amount_b <= amount_b, ErrorInvalidState);
+            (liqudity, l_amount_a, l_amount_b, true)
         }
     }
 
@@ -244,21 +273,21 @@ module smartinscription::movescription_to_amm{
         config: &GlobalConfig, 
         pool: &mut Pool<CoinTypeA, CoinTypeB>, 
         balance_a: Balance<CoinTypeA>, 
-        balance_b: Balance<CoinTypeB>, 
+        balance_b: Balance<CoinTypeB>,
+        a2b: bool, 
         clk: &Clock) : (Balance<CoinTypeA>, Balance<CoinTypeB>){
         let amount_a = balance::value(&balance_a);
         let amount_b = balance::value(&balance_b);
-        let a2b = amount_a >0;
 
         let amount = if (a2b) amount_a/2 else amount_b/2;
-        let current_sqrt_price = pool::current_sqrt_price(pool);
+        let sqrt_price_limit = get_default_sqrt_price_limit(a2b);
         let (receive_a, receive_b, flash_receipt) = pool::flash_swap<CoinTypeA, CoinTypeB>(
             config,
             pool,
             a2b,
             true,
             amount,
-            current_sqrt_price,
+            sqrt_price_limit,
             clk
         );
         let (in_amount, _out_amount) = (
@@ -286,6 +315,14 @@ module smartinscription::movescription_to_amm{
         (balance_a, balance_b)
     }
 
+    fun get_default_sqrt_price_limit(a2b: bool): u128{
+        if(a2b){
+            tick_math::min_sqrt_price()
+        }else{
+            tick_math::max_sqrt_price()
+        }
+    }
+
     fun movescription_to_lpt<T: drop>(tick_record: &mut TickRecordV2, movescription: Movescription): (Balance<MCoin<T>>, Balance<SUI>){
         let (balance_sui, locked, metadata, balance_t) = movescription::movescription_to_coin<T>(tick_record, movescription);
         //Currently, we do not support Movescription has LockedMovescription and Metadata.
@@ -300,10 +337,10 @@ module smartinscription::movescription_to_amm{
     const POW_10_18: u128 = 1000000000000000000;
     const POW_10_9: u128 = 1000000000;
     ///https://github.com/CetusProtocol/cetus-clmm-sui-sdk/blob/a28b7220b7ef4fd3ec361abfddd0aaf9413946d8/src/math/tick.ts#L164
-    fun price_to_sqrt_price_x64(a_amount: u64, b_amount: u64, a_decimals: u64, b_decimals: u64) : u128{
-        let a = (a_amount as u128);
-        let b = (b_amount as u128);
-        let decimal_diff = (math::diff(a_decimals, b_decimals) as u8);
+    fun price_to_sqrt_price_x64(amount_a: u64, amount_b: u64, decimals_a: u64, decimals_b: u64) : u128{
+        let a = (amount_a as u128);
+        let b = (amount_b as u128);
+        let decimal_diff = (math::diff(decimals_a, decimals_b) as u8);
         let sqrt_price = math::sqrt_u128(b * (math::pow(10, (decimal_diff as u8)) as u128) * POW_10_18/ a)*POW_2_64/POW_10_9;
         sqrt_price
     }
@@ -335,11 +372,11 @@ module smartinscription::movescription_to_amm{
 
     #[test]
     fun test_price_to_sqrt_price_x64(){
-        let a_amount = 500_000000000;
-        let b_amount = 100_000000000;
-        let a_decimals = 9;
-        let b_decimals = 9;
-        let sqrt_price = price_to_sqrt_price_x64(a_amount, b_amount, a_decimals, b_decimals);
+        let amount_a = 500_000000000;
+        let amount_b = 100_000000000;
+        let decimals_a = 9;
+        let decimals_b = 9;
+        let sqrt_price = price_to_sqrt_price_x64(amount_a, amount_b, decimals_a, decimals_b);
         std::debug::print(&sqrt_price);
         //js result:
         // console.log(TickMath.priceToSqrtPriceX64(
@@ -355,11 +392,11 @@ module smartinscription::movescription_to_amm{
 
     #[test]
     fun test_price_to_sqrt_price_x64_float(){
-        let a_amount = 50_000000000;
-        let b_amount = 100_000000000;
-        let a_decimals = 9;
-        let b_decimals = 9;
-        let sqrt_price = price_to_sqrt_price_x64(a_amount, b_amount, a_decimals, b_decimals);
+        let amount_a = 50_000000000;
+        let amount_b = 100_000000000;
+        let decimals_a = 9;
+        let decimals_b = 9;
+        let sqrt_price = price_to_sqrt_price_x64(amount_a, amount_b, decimals_a, decimals_b);
         std::debug::print(&sqrt_price);
         //js result:
         // console.log(TickMath.priceToSqrtPriceX64(
@@ -376,21 +413,31 @@ module smartinscription::movescription_to_amm{
     #[test]
     fun test_real_case(){
         //MOVE
-        let a_amount = 462962_000000000;
+        let amount_a = 462962_000000000;
         //SUI
-        let b_amount = 200000000;
-        let a_decimals = 9;
-        let b_decimals = 9;
-        let sqrt_price = price_to_sqrt_price_x64(a_amount, b_amount, a_decimals, b_decimals);
+        let amount_b = 200000000;
+        let decimals_a = 9;
+        let decimals_b = 9;
+        let sqrt_price = price_to_sqrt_price_x64(amount_a, amount_b, decimals_a, decimals_b);
         std::debug::print(&sqrt_price);
         let tick_at_sqrt_price = tick_math::get_tick_at_sqrt_price(sqrt_price);
         std::debug::print(&tick_at_sqrt_price);
-        let (liqudity, a_result, b_result) = clmm_math::get_liquidity_by_amount(i32::from_u32(CETUS_MIN_TICK_U32), i32::from_u32(CETUS_MAX_TICK_U32), tick_at_sqrt_price, sqrt_price, a_amount, true);
+        let (liqudity, a_result, b_result, is_fixed_a) = get_liquidity_by_amount(i32::from_u32(CETUS_MIN_TICK_U32), i32::from_u32(CETUS_MAX_TICK_U32), tick_at_sqrt_price, sqrt_price, amount_a, amount_b);
         std::debug::print(&liqudity);
         std::debug::print(&a_result);
         std::debug::print(&b_result);
+        std::debug::print(&is_fixed_a);
+    }
 
-        let (liqudity, a_result, b_result) = clmm_math::get_liquidity_by_amount(i32::from_u32(CETUS_MIN_TICK_U32), i32::from_u32(CETUS_MAX_TICK_U32), tick_at_sqrt_price, sqrt_price, b_amount, false);
+    #[test]
+    fun test_real_case2(){
+        //MOVE
+        let amount_a = 462962_000000000;
+        //SUI
+        let amount_b = 200000000;
+        let sqrt_price:u128 = 12124436137094855;
+        let tick_index = i32::from_u32(4294820740);
+        let (liqudity, a_result, b_result, _is_fixed_a) = get_liquidity_by_amount(i32::from_u32(CETUS_MIN_TICK_U32), i32::from_u32(CETUS_MAX_TICK_U32), tick_index, sqrt_price, amount_a, amount_b);
         std::debug::print(&liqudity);
         std::debug::print(&a_result);
         std::debug::print(&b_result);
