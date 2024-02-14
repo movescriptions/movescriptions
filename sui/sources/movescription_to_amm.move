@@ -18,6 +18,8 @@ module smartinscription::movescription_to_amm{
 
     const CETUS_TICK_SPACING: u32 = 200;
     const SUI_DECIMALS: u64 = 9;
+    const CETUS_MIN_TICK_U32: u32 = 4294523696; // see test_check_postion_tick_range
+    const CETUS_MAX_TICK_U32: u32 = 443600; // see test_check_postion_tick_range
 
     const ErrorTreasuryNotInited: u64 = 1;
     const ErrorCoinTypeMissMatch: u64 = 2;
@@ -49,8 +51,8 @@ module smartinscription::movescription_to_amm{
 
         let (position, coin_a, coin_b) = factory::create_pool_with_liquidity<MCoin<T>,SUI>(
             pools, config, CETUS_TICK_SPACING, initialize_price, std::string::utf8(b""), 
-            tick_math::tick_bound(),
-            tick_math::tick_bound(),
+            CETUS_MIN_TICK_U32,
+            CETUS_MAX_TICK_U32,
             coin::from_balance(balance_a, ctx),
             coin::from_balance(balance_b, ctx),
             amount_a,
@@ -304,6 +306,33 @@ module smartinscription::movescription_to_amm{
         sqrt_price
     }
 
+    #[test_only]
+    use integer_mate::i32;
+    #[test_only]
+    fun check_postion_tick_range(lower: u32, upper: u32, tick_spacing: u32){
+        let lower_i32 = i32::from_u32(lower);
+        let upper_i32 = i32::from_u32(upper);
+        assert!(i32::lt(lower_i32, upper_i32), 1);
+        assert!(i32::gte(lower_i32, tick_math::min_tick()), 2);
+        assert!(i32::lte(upper_i32, tick_math::max_tick()), 3);
+        assert!(i32::mod(lower_i32, i32::from(tick_spacing)) == i32::zero(), 4);
+        assert!(i32::mod(upper_i32, i32::from(tick_spacing)) == i32::zero(), 5);
+    }
+
+    #[test]
+    fun test_check_postion_tick_range(){
+        let min_tick = tick_math::min_tick();
+        // i32::mod min_tick is a negative number, so we use sub function not add.
+        let suitable_min_tick = i32::sub(min_tick,i32::mod(min_tick, i32::from(CETUS_TICK_SPACING)));
+        let max_tick = tick_math::max_tick();
+        let suitable_max_tick = i32::sub(max_tick,i32::mod(max_tick, i32::from(CETUS_TICK_SPACING)));
+        let suitable_min_tick_u32 = i32::as_u32(suitable_min_tick);
+        let suitable_max_tick_u32 = i32::as_u32(suitable_max_tick);
+        std::debug::print(&suitable_min_tick_u32);
+        std::debug::print(&suitable_max_tick_u32);
+        check_postion_tick_range(suitable_min_tick_u32, suitable_max_tick_u32, CETUS_TICK_SPACING);
+    }
+
     #[test]
     fun test_price_to_sqrt_price_x64(){
         let a_amount = 500_000000000;
@@ -320,6 +349,8 @@ module smartinscription::movescription_to_amm{
         //     ).toString());
         //41248173712355948587
         assert!(sqrt_price == 41248173703136455967, 1);
+        let tick_at_sqrt_price = tick_math::get_tick_at_sqrt_price(sqrt_price);
+        std::debug::print(&tick_at_sqrt_price);
     }
 
     #[test]
@@ -338,5 +369,29 @@ module smartinscription::movescription_to_amm{
         //     ).toString());
         //13043817825332782212
         assert!(sqrt_price == 13043817821891587772, 1);
+        let tick_at_sqrt_price = tick_math::get_tick_at_sqrt_price(sqrt_price);
+        std::debug::print(&tick_at_sqrt_price);
+    }
+
+    #[test]
+    fun test_real_case(){
+        //MOVE
+        let a_amount = 462962_000000000;
+        //SUI
+        let b_amount = 200000000;
+        let a_decimals = 9;
+        let b_decimals = 9;
+        let sqrt_price = price_to_sqrt_price_x64(a_amount, b_amount, a_decimals, b_decimals);
+        std::debug::print(&sqrt_price);
+        let tick_at_sqrt_price = tick_math::get_tick_at_sqrt_price(sqrt_price);
+        std::debug::print(&tick_at_sqrt_price);
+    }
+
+    #[test]
+    fun min_max_tick(){
+        let min = tick_math::min_tick();
+        std::debug::print(&min);
+        let max = tick_math::max_tick();
+        std::debug::print(&max);
     }
 }
