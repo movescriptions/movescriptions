@@ -302,7 +302,7 @@ module smartinscription::movescription_to_amm{
         let a = (a_amount as u128);
         let b = (b_amount as u128);
         let decimal_diff = (math::diff(a_decimals, b_decimals) as u8);
-        let sqrt_price = math::sqrt_u128(a * (math::pow(10, (decimal_diff as u8)) as u128) * POW_10_18/ b)*POW_2_64/POW_10_9;
+        let sqrt_price = math::sqrt_u128(b * (math::pow(10, (decimal_diff as u8)) as u128) * POW_10_18/ a)*POW_2_64/POW_10_9;
         sqrt_price
     }
 
@@ -343,12 +343,12 @@ module smartinscription::movescription_to_amm{
         std::debug::print(&sqrt_price);
         //js result:
         // console.log(TickMath.priceToSqrtPriceX64(
-        //     d(500_000000000.0000000000/100_000000000.00000000),
-        //     9,
-        //     9
-        //     ).toString());
-        //41248173712355948587
-        assert!(sqrt_price == 41248173703136455967, 1);
+        // d(100_000000000.00000000/500_000000000.0000000000),
+        // 9,
+        // 9
+        // ).toString());
+        //8249634742471189717
+        assert!(sqrt_price == 8249634733248593564, 1);
         let tick_at_sqrt_price = tick_math::get_tick_at_sqrt_price(sqrt_price);
         std::debug::print(&tick_at_sqrt_price);
     }
@@ -363,12 +363,12 @@ module smartinscription::movescription_to_amm{
         std::debug::print(&sqrt_price);
         //js result:
         // console.log(TickMath.priceToSqrtPriceX64(
-        //     d(500_000000000.0000000000/100_000000000.00000000),
+        //     d(100_000000000.00000000/50_000000000.0000000000),
         //     9,
         //     9
         //     ).toString());
-        //13043817825332782212
-        assert!(sqrt_price == 13043817821891587772, 1);
+        //26087635650665564424
+        assert!(sqrt_price == 26087635643783175544, 1);
         let tick_at_sqrt_price = tick_math::get_tick_at_sqrt_price(sqrt_price);
         std::debug::print(&tick_at_sqrt_price);
     }
@@ -385,10 +385,6 @@ module smartinscription::movescription_to_amm{
         std::debug::print(&sqrt_price);
         let tick_at_sqrt_price = tick_math::get_tick_at_sqrt_price(sqrt_price);
         std::debug::print(&tick_at_sqrt_price);
-        let (liqudity, a_result, b_result) = clmm_math::get_liquidity_by_amount(i32::from_u32(CETUS_MIN_TICK_U32), i32::from_u32(CETUS_MAX_TICK_U32), tick_at_sqrt_price, sqrt_price, b_amount, false);
-        std::debug::print(&liqudity);
-        std::debug::print(&a_result);
-        std::debug::print(&b_result);
         let (liqudity, a_result, b_result) = clmm_math::get_liquidity_by_amount(i32::from_u32(CETUS_MIN_TICK_U32), i32::from_u32(CETUS_MAX_TICK_U32), tick_at_sqrt_price, sqrt_price, a_amount, true);
         std::debug::print(&liqudity);
         std::debug::print(&a_result);
