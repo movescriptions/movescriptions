@@ -1,6 +1,6 @@
 module smartinscription::init{
     use sui::tx_context::TxContext;
-    use smartinscription::movescription::{DeployRecord, TickRecordV2};
+    use smartinscription::movescription::{DeployRecord, TickRecordV2, InitTreasuryArgs};
     use smartinscription::tick_factory;
     use smartinscription::epoch_bus_factory;
     use smartinscription::name_factory;
@@ -15,7 +15,7 @@ module smartinscription::init{
         mint_get_factory::deploy_test_tick(deploy_record, ctx);        
     }
 
-    public entry fun init_movecoin(tick_record: &mut TickRecordV2){
-        movecoin::init_movecoin(tick_record);
+    public entry fun init_movecoin<T: drop>(tick_record: &mut TickRecordV2, init_args: &mut InitTreasuryArgs<T>){
+        movecoin::init_movecoin(tick_record, init_args);
     }
 }

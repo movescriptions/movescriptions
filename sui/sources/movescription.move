@@ -6,8 +6,8 @@ module smartinscription::movescription {
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
     use sui::event::emit;
-    use sui::coin::{Self, Coin};
-    use sui::balance::{Self, Balance, Supply};
+    use sui::coin::{Self, Coin, TreasuryCap, CoinMetadata};
+    use sui::balance::{Self, Balance};
     use sui::table::{Self, Table};
     use sui::sui::SUI;
     use sui::clock::{Clock};
@@ -33,7 +33,7 @@ module smartinscription::movescription {
     const PROTOCOL_START_TIME_MS: u64 = 1704038400*1000;
     const MOVE_TICK_TOTAL_SUPPLY: u64 = 100_0000_0000;
     const TREASURY_FIELD_NAME: vector<u8> = b"treasury";
-    const MCOIN_DECIMALS: u64 = 9;
+    const MCOIN_DECIMALS: u8 = 9;
     const MCOIN_DECIMALS_BASE: u64 = 1_000_000_000;
     
     // ======== Errors =========
@@ -119,11 +119,15 @@ module smartinscription::movescription {
         amount: u64,
     }
 
-    struct MCoin<phantom T> has drop{}
-
     struct Treasury<phantom T> has store{
-        supply: Supply<MCoin<T>>,
+        cap: TreasuryCap<T>,
         coin_type: String,
+    }
+
+    struct InitTreasuryArgs<phantom T> has key, store{
+        id: UID,
+        tick: String,
+        cap: Option<TreasuryCap<T>>,
     }
 
     // ======== Events =========
@@ -557,21 +561,40 @@ module smartinscription::movescription {
 
     public fun coin_supply<T: drop>(tick_record: &TickRecordV2): u64{
         let treasury = borrow_treasury<T>(tick_record);
-        balance::supply_value(&treasury.supply)
+        coin::total_supply(&treasury.cap)
     }
 
-    public(friend) fun init_treasury<T: drop>(tick_record: &mut TickRecordV2, _witness: T) {
+    #[lint_allow(share_owned)]
+    public(friend) fun new_init_treasury_args<T: drop>(
+        tick: String,
+        cap: TreasuryCap<T>, 
+        coin_metadata: CoinMetadata<T>, ctx: &mut TxContext): InitTreasuryArgs<T> {
+        //let struct_name = type_util::struct_name<T>();
+        //assert!(tick == struct_name, ErrorInvalidCoinType);
+        assert!(coin::get_symbol(&coin_metadata) == tick, ErrorInvalidCoinType);
+        assert!(coin::total_supply(&cap) == 0, ErrorNotZero);
+        assert!(coin::get_decimals(&coin_metadata) == MCOIN_DECIMALS, ErrorInvalidCoinType);
+        transfer::public_share_object(coin_metadata);
+        InitTreasuryArgs {
+            id: object::new(ctx),
+            tick: tick,
+            cap: option::some(cap),
+        }
+    }
+
+    //TODO we should delete the InitTreasuryArgs after init treasury, but the SUI mainnet is not support delete the shared object now
+    public(friend) fun init_treasury<T: drop>(tick_record: &mut TickRecordV2, init_args: &mut InitTreasuryArgs<T>) {
         assert!(!df::exists_(&tick_record.id, TREASURY_FIELD_NAME), ErrorTreasuryAlreadyInit);
-        let struct_name = type_util::struct_name<T>();
-        assert!(tick_record.tick == struct_name, ErrorInvalidCoinType);
+        assert!(tick_record.tick == init_args.tick, ErrorNotSameTick);
+        let cap = option::extract(&mut init_args.cap);
         let type_name = type_util::type_to_name<T>();
-        let treasury = Treasury { supply: balance::create_supply(MCoin<T>{}), coin_type: type_name };
+        let treasury = Treasury { cap, coin_type: type_name };
         add_treasury(tick_record, treasury);
     }
 
     public(friend) fun movescription_to_coin<T: drop>(
         tick_record: &mut TickRecordV2, 
-        movescription: Movescription):(Balance<SUI>, Option<Movescription>, Option<Metadata>, Balance<MCoin<T>>){
+        movescription: Movescription):(Balance<SUI>, Option<Movescription>, Option<Metadata>, Balance<T>){
         assert!(tick_record.tick == movescription.tick, ErrorNotSameTick);
         assert!(movescription.attach_coin == 0, ErrorAttachDFExists);
     
@@ -584,7 +607,7 @@ module smartinscription::movescription {
         object::delete(id);
         let treasury = borrow_mut_treasury<T>(tick_record);
         let coin_amount = amount * MCOIN_DECIMALS_BASE;
-        let balance_t = balance::increase_supply(&mut treasury.supply, coin_amount);
+        let balance_t = coin::mint_balance(&mut treasury.cap, coin_amount);
         (acc, locked_movescription, metadata, balance_t) 
     }
 
@@ -593,14 +616,14 @@ module smartinscription::movescription {
         acc: Balance<SUI>, 
         locked: Option<Movescription>, 
         metadata: Option<Metadata>, 
-        balance_t: Balance<MCoin<T>>, 
-        ctx: &mut TxContext):(Movescription, Balance<MCoin<T>>){
+        balance_t: Balance<T>, 
+        ctx: &mut TxContext):(Movescription, Balance<T>){
         let treasury = borrow_mut_treasury<T>(tick_record);
         let coin_amount = balance::value(&balance_t);
         assert!(coin_amount >= MCOIN_DECIMALS_BASE, ErrorNotEnoughBalance);
         let movescription_amount = coin_amount / MCOIN_DECIMALS_BASE;
         let decrease_balance = balance::split(&mut balance_t, movescription_amount * MCOIN_DECIMALS_BASE);
-        balance::decrease_supply(&mut treasury.supply, decrease_balance);
+        coin::burn(&mut treasury.cap, coin::from_balance(decrease_balance, ctx));
         let movescription = new_movescription(movescription_amount, tick_record.tick, acc, metadata, ctx);
         if(option::is_some(&locked)){
             let locked = option::destroy_some(locked);
@@ -837,7 +860,7 @@ module smartinscription::movescription {
         MOVE_TICK_TOTAL_SUPPLY
     } 
 
-    public fun mcoin_decimals(): u64{
+    public fun mcoin_decimals(): u8{
         MCOIN_DECIMALS
     }
 
@@ -990,14 +1013,24 @@ module smartinscription::movescription {
         object::delete(id);
     }
 
-    public fun init_treasury_for_testing<T: drop>(tick_record: &mut TickRecordV2, witness: T) {
-        init_treasury(tick_record, witness);
+    #[test_only]
+    public fun init_treasury_for_testing<T: drop>(tick_record: &mut TickRecordV2, ctx: &mut TxContext) {
+        let cap = coin::create_treasury_cap_for_testing<T>(ctx);
+        let args = InitTreasuryArgs<T> {
+            id: object::new(ctx),
+            tick: tick_record.tick,
+            cap: option::some(cap),
+        };
+        init_treasury(tick_record, &mut args);
+        let InitTreasuryArgs { id, tick: _, cap} = args;
+        option::destroy_none(cap);
+        object::delete(id);
     }
 
     #[test_only]
     public fun movescription_to_coin_for_testing<T: drop>(
         tick_record: &mut TickRecordV2, 
-        movescription: Movescription):(Balance<SUI>, Option<Movescription>, Option<Metadata>, Balance<MCoin<T>>){
+        movescription: Movescription):(Balance<SUI>, Option<Movescription>, Option<Metadata>, Balance<T>){
         movescription_to_coin(tick_record, movescription)
     }
 
@@ -1007,8 +1040,8 @@ module smartinscription::movescription {
         acc: Balance<SUI>, 
         locked: Option<Movescription>, 
         metadata: Option<Metadata>, 
-        balance_t: Balance<MCoin<T>>, 
-        ctx: &mut TxContext):(Movescription, Balance<MCoin<T>>){
+        balance_t: Balance<T>, 
+        ctx: &mut TxContext):(Movescription, Balance<T>){
         coin_to_movescription(tick_record, acc, locked, metadata, balance_t, ctx)
     }
 

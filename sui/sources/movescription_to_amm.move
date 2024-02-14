@@ -15,10 +15,10 @@ module smartinscription::movescription_to_amm{
     use cetus_clmm::tick_math;
     use cetus_clmm::clmm_math;
     use integer_mate::i32::{Self, I32};
-    use smartinscription::movescription::{Self, Movescription, MCoin, TickRecordV2};
+    use smartinscription::movescription::{Self, Movescription, TickRecordV2};
 
     const CETUS_TICK_SPACING: u32 = 200;
-    const SUI_DECIMALS: u64 = 9;
+    const SUI_DECIMALS: u8 = 9;
     const CETUS_MIN_TICK_U32: u32 = 4294523696; // see test_check_postion_tick_range
     const CETUS_MAX_TICK_U32: u32 = 443600; // see test_check_postion_tick_range
 
@@ -50,7 +50,7 @@ module smartinscription::movescription_to_amm{
         let decimals_b = SUI_DECIMALS;
         let initialize_price = price_to_sqrt_price_x64(amount_a, amount_b, decimals_a, decimals_b);
 
-        let (position, coin_a, coin_b) = factory::create_pool_with_liquidity<MCoin<T>,SUI>(
+        let (position, coin_a, coin_b) = factory::create_pool_with_liquidity<T,SUI>(
             pools, config, CETUS_TICK_SPACING, initialize_price, std::string::utf8(b""), 
             CETUS_MIN_TICK_U32,
             CETUS_MAX_TICK_U32,
@@ -77,7 +77,7 @@ module smartinscription::movescription_to_amm{
         };
     }
 
-    public entry fun add_liquidity<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, movescription: Movescription, clk: &Clock, ctx: &mut TxContext){
+    public entry fun add_liquidity<T: drop>(config: &GlobalConfig, pool: &mut Pool<T,SUI>, tick_record: &mut TickRecordV2, movescription: Movescription, clk: &Clock, ctx: &mut TxContext){
         assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
         assert!(movescription::tick_record_exists_df<Positions>(tick_record), ErrorPoolNotInited);
         let (balance_a, balance_b) = movescription_to_lpt<T>(tick_record, movescription);
@@ -110,7 +110,7 @@ module smartinscription::movescription_to_amm{
         };
     }
 
-    public entry fun remove_liquidity<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, delta_liquidity: u128, clk: &Clock, ctx: &mut TxContext){
+    public entry fun remove_liquidity<T: drop>(config: &GlobalConfig, pool: &mut Pool<T,SUI>, tick_record: &mut TickRecordV2, delta_liquidity: u128, clk: &Clock, ctx: &mut TxContext){
         let (movescription, balance_t) = do_remove_liquidity(config, pool, tick_record, delta_liquidity, clk, ctx);
         let sender = tx_context::sender(ctx);
         transfer::public_transfer(movescription, sender);
@@ -123,11 +123,11 @@ module smartinscription::movescription_to_amm{
 
     public fun do_remove_liquidity<T: drop>(
         config: &GlobalConfig, 
-        pool: &mut Pool<MCoin<T>,SUI>, 
+        pool: &mut Pool<T,SUI>, 
         tick_record: &mut TickRecordV2,
         delta_liquidity: u128, 
         clk: &Clock, 
-        ctx: &mut TxContext) : (Movescription, Balance<MCoin<T>>){
+        ctx: &mut TxContext) : (Movescription, Balance<T>){
         assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
         assert!(movescription::tick_record_exists_df<Positions>(tick_record), ErrorPoolNotInited);
         let positions = movescription::tick_record_borrow_mut_df_internal<Positions>(tick_record);
@@ -139,7 +139,7 @@ module smartinscription::movescription_to_amm{
         (movescription, remain_balance_a)
     }
 
-    public entry fun remove_all_liquidity<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, clk: &Clock, ctx: &mut TxContext){
+    public entry fun remove_all_liquidity<T: drop>(config: &GlobalConfig, pool: &mut Pool<T,SUI>, tick_record: &mut TickRecordV2, clk: &Clock, ctx: &mut TxContext){
         let (movescription, balance_t) = do_remove_all_liquidity(config, pool, tick_record, clk, ctx);
         transfer::public_transfer(movescription, tx_context::sender(ctx));
         let sender = tx_context::sender(ctx);
@@ -152,9 +152,9 @@ module smartinscription::movescription_to_amm{
 
     public fun do_remove_all_liquidity<T: drop>(
         config: &GlobalConfig, 
-        pool: &mut Pool<MCoin<T>,SUI>, 
+        pool: &mut Pool<T,SUI>, 
         tick_record: &mut TickRecordV2, 
-        clk: &Clock, ctx: &mut TxContext) : (Movescription, Balance<MCoin<T>>){
+        clk: &Clock, ctx: &mut TxContext) : (Movescription, Balance<T>){
         assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
         assert!(movescription::tick_record_exists_df<Positions>(tick_record), ErrorPoolNotInited);
         let positions = movescription::tick_record_borrow_mut_df_internal<Positions>(tick_record);
@@ -169,13 +169,13 @@ module smartinscription::movescription_to_amm{
         (movescription, remain_balance_a)
     }
 
-    public entry fun collect_fee<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, ctx: &mut TxContext){
+    public entry fun collect_fee<T: drop>(config: &GlobalConfig, pool: &mut Pool<T,SUI>, tick_record: &mut TickRecordV2, ctx: &mut TxContext){
         let (balance_sui, balance_t) = do_collect_fee(config, pool, tick_record, ctx);
         transfer::public_transfer(coin::from_balance(balance_sui,ctx), tx_context::sender(ctx));
         transfer::public_transfer(coin::from_balance(balance_t, ctx), tx_context::sender(ctx));
     }
 
-    public fun do_collect_fee<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, ctx: &mut TxContext) :(Balance<MCoin<T>>, Balance<SUI>){
+    public fun do_collect_fee<T: drop>(config: &GlobalConfig, pool: &mut Pool<T,SUI>, tick_record: &mut TickRecordV2, ctx: &mut TxContext) :(Balance<T>, Balance<SUI>){
         assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
         assert!(movescription::tick_record_exists_df<Positions>(tick_record), ErrorPoolNotInited);
         let positions = movescription::tick_record_borrow_df<Positions>(tick_record);
@@ -185,7 +185,7 @@ module smartinscription::movescription_to_amm{
         pool::collect_fee(config, pool, position_nft, true)
     }
 
-    public entry fun buy<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, sui: Coin<SUI>, clk: &Clock, ctx: &mut TxContext){
+    public entry fun buy<T: drop>(config: &GlobalConfig, pool: &mut Pool<T,SUI>, tick_record: &mut TickRecordV2, sui: Coin<SUI>, clk: &Clock, ctx: &mut TxContext){
         let (balance_t, balance_sui) = do_buy(config, pool, tick_record, sui, clk);
         let sender = tx_context::sender(ctx);
         if(balance::value(&balance_sui) > 0){
@@ -200,19 +200,19 @@ module smartinscription::movescription_to_amm{
         };
     }
 
-    public fun do_buy<T: drop>(config: &GlobalConfig, pool: &mut Pool<MCoin<T>,SUI>, tick_record: &mut TickRecordV2, sui: Coin<SUI>, clk: &Clock) : (Balance<MCoin<T>>, Balance<SUI>){
+    public fun do_buy<T: drop>(config: &GlobalConfig, pool: &mut Pool<T,SUI>, tick_record: &mut TickRecordV2, sui: Coin<SUI>, clk: &Clock) : (Balance<T>, Balance<SUI>){
         assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
         assert!(movescription::tick_record_exists_df<Positions>(tick_record), ErrorPoolNotInited);
-        swap(config, pool, balance::zero<MCoin<T>>(), coin::into_balance(sui), false, clk)
+        swap(config, pool, balance::zero<T>(), coin::into_balance(sui), false, clk)
     }
 
     fun add_liquidity_with_swap<T:drop>(
         config: &GlobalConfig, 
-        pool: &mut Pool<MCoin<T>,SUI>, 
+        pool: &mut Pool<T,SUI>, 
         position_nft: &mut Position, 
-        balance_a: Balance<MCoin<T>>, 
+        balance_a: Balance<T>, 
         balance_b: Balance<SUI>, 
-        clk: &Clock):(Balance<MCoin<T>>, Balance<SUI>){
+        clk: &Clock):(Balance<T>, Balance<SUI>){
         if(balance::value(&balance_a) == 0 || balance::value(&balance_b) == 0){
             let a2b = balance::value(&balance_a) != 0; 
             let (swap_balance_a, swap_balance_b) = swap(config, pool, balance_a, balance_b, a2b, clk);
@@ -232,11 +232,11 @@ module smartinscription::movescription_to_amm{
 
     fun add_liquidity_internal<T:drop>(
         config: &GlobalConfig, 
-        pool: &mut Pool<MCoin<T>,SUI>, 
+        pool: &mut Pool<T,SUI>, 
         position_nft: &mut Position, 
-        balance_a: Balance<MCoin<T>>, 
+        balance_a: Balance<T>, 
         balance_b: Balance<SUI>, 
-        clk: &Clock):(Balance<MCoin<T>>, Balance<SUI>, bool){
+        clk: &Clock):(Balance<T>, Balance<SUI>, bool){
         let amount_a = balance::value(&balance_a);
         let amount_b = balance::value(&balance_b);
         let current_tick_index = pool::current_tick_index(pool);
@@ -323,7 +323,7 @@ module smartinscription::movescription_to_amm{
         }
     }
 
-    fun movescription_to_lpt<T: drop>(tick_record: &mut TickRecordV2, movescription: Movescription): (Balance<MCoin<T>>, Balance<SUI>){
+    fun movescription_to_lpt<T: drop>(tick_record: &mut TickRecordV2, movescription: Movescription): (Balance<T>, Balance<SUI>){
         let (balance_sui, locked, metadata, balance_t) = movescription::movescription_to_coin<T>(tick_record, movescription);
         //Currently, we do not support Movescription has LockedMovescription and Metadata.
         assert!(option::is_none(&locked), ErrorNotSupported);
@@ -337,10 +337,10 @@ module smartinscription::movescription_to_amm{
     const POW_10_18: u128 = 1000000000000000000;
     const POW_10_9: u128 = 1000000000;
     ///https://github.com/CetusProtocol/cetus-clmm-sui-sdk/blob/a28b7220b7ef4fd3ec361abfddd0aaf9413946d8/src/math/tick.ts#L164
-    fun price_to_sqrt_price_x64(amount_a: u64, amount_b: u64, decimals_a: u64, decimals_b: u64) : u128{
+    fun price_to_sqrt_price_x64(amount_a: u64, amount_b: u64, decimals_a: u8, decimals_b: u8) : u128{
         let a = (amount_a as u128);
         let b = (amount_b as u128);
-        let decimal_diff = (math::diff(decimals_a, decimals_b) as u8);
+        let decimal_diff = (math::diff((decimals_a as u64), (decimals_b as u64)) as u8);
         let sqrt_price = math::sqrt_u128(b * (math::pow(10, (decimal_diff as u8)) as u128) * POW_10_18/ a)*POW_2_64/POW_10_9;
         sqrt_price
     }
@@ -374,8 +374,8 @@ module smartinscription::movescription_to_amm{
     fun test_price_to_sqrt_price_x64(){
         let amount_a = 500_000000000;
         let amount_b = 100_000000000;
-        let decimals_a = 9;
-        let decimals_b = 9;
+        let decimals_a:u8 = 9;
+        let decimals_b:u8 = 9;
         let sqrt_price = price_to_sqrt_price_x64(amount_a, amount_b, decimals_a, decimals_b);
         std::debug::print(&sqrt_price);
         //js result:
@@ -394,8 +394,8 @@ module smartinscription::movescription_to_amm{
     fun test_price_to_sqrt_price_x64_float(){
         let amount_a = 50_000000000;
         let amount_b = 100_000000000;
-        let decimals_a = 9;
-        let decimals_b = 9;
+        let decimals_a:u8 = 9;
+        let decimals_b:u8 = 9;
         let sqrt_price = price_to_sqrt_price_x64(amount_a, amount_b, decimals_a, decimals_b);
         std::debug::print(&sqrt_price);
         //js result:
@@ -416,8 +416,8 @@ module smartinscription::movescription_to_amm{
         let amount_a = 462962_000000000;
         //SUI
         let amount_b = 200000000;
-        let decimals_a = 9;
-        let decimals_b = 9;
+        let decimals_a:u8 = 9;
+        let decimals_b:u8 = 9;
         let sqrt_price = price_to_sqrt_price_x64(amount_a, amount_b, decimals_a, decimals_b);
         std::debug::print(&sqrt_price);
         let tick_at_sqrt_price = tick_math::get_tick_at_sqrt_price(sqrt_price);
