@@ -1,0 +1,15 @@
+[package]
+name = "MoveCoin"
+authors = ["Pika", "10xhunter", "jolestar", "jojoo-eth"]
+version = "1.0"
+#testnet
+#published-at = "0x5c7ad234059483cfd873239097d353bafd886c6be7705f4aef8f1f93cabe8308"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.17.3", override = true}
+SmartInscription = { local = "../" }
+
+[addresses]
+#testnet
+#smartinscription = "0x5c7ad234059483cfd873239097d353bafd886c6be7705f4aef8f1f93cabe8308"
+movecoin = "0x0"
