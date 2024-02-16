@@ -567,7 +567,9 @@ module smartinscription::movescription {
     public fun new_init_treasury_args<T: drop>(
         tick: String,
         cap: TreasuryCap<T>, 
-        coin_metadata: CoinMetadata<T>, ctx: &mut TxContext): InitTreasuryArgs<T> {
+        coin_metadata: CoinMetadata<T>, 
+        ctx: &mut TxContext
+    ): InitTreasuryArgs<T> {
         //let struct_name = type_util::struct_name<T>();
         //assert!(tick == struct_name, ErrorInvalidCoinType);
         assert!(coin::get_symbol(&coin_metadata) == tick, ErrorInvalidCoinType);
@@ -582,7 +584,10 @@ module smartinscription::movescription {
     }
 
     //TODO we should delete the InitTreasuryArgs after init treasury, but the SUI mainnet is not support delete the shared object now
-    public fun init_treasury<T: drop>(tick_record: &mut TickRecordV2, init_args: &mut InitTreasuryArgs<T>) {
+    public fun init_treasury<T: drop>(
+        tick_record: &mut TickRecordV2, 
+        init_args: &mut InitTreasuryArgs<T>
+    ) {
         assert!(tick_record.version <= VERSION, ErrorVersionMismatched);
         assert!(!df::exists_(&tick_record.id, TREASURY_FIELD_NAME), ErrorTreasuryAlreadyInit);
         assert!(tick_record.tick == init_args.tick, ErrorNotSameTick);
@@ -594,7 +599,8 @@ module smartinscription::movescription {
 
     public(friend) fun movescription_to_coin<T: drop>(
         tick_record: &mut TickRecordV2, 
-        movescription: Movescription):(Balance<SUI>, Option<Movescription>, Option<Metadata>, Balance<T>){
+        movescription: Movescription
+    ): (Balance<SUI>, Option<Movescription>, Option<Metadata>, Balance<T>) {
         assert!(tick_record.version <= VERSION, ErrorVersionMismatched);
         assert!(tick_record.tick == movescription.tick, ErrorNotSameTick);
         assert!(movescription.attach_coin == 0, ErrorAttachDFExists);
@@ -618,7 +624,8 @@ module smartinscription::movescription {
         locked: Option<Movescription>, 
         metadata: Option<Metadata>, 
         balance_t: Balance<T>, 
-        ctx: &mut TxContext):(Movescription, Balance<T>){
+        ctx: &mut TxContext
+    ): (Movescription, Balance<T>) {
         assert!(tick_record.version <= VERSION, ErrorVersionMismatched);
         let treasury = borrow_mut_treasury<T>(tick_record);
         let coin_amount = balance::value(&balance_t);
