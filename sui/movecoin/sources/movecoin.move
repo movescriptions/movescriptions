@@ -1,6 +1,7 @@
 module movecoin::movecoin{
     use std::option;
     use sui::coin;
+    use sui::url::new_unsafe_from_bytes;
     use sui::transfer;
     use sui::tx_context::TxContext;
     use smartinscription::movescription::{Self, TickRecordV2, InitTreasuryArgs};
@@ -12,7 +13,15 @@ module movecoin::movecoin{
     #[lint_allow(share_owned)]
     fun init(witness: MOVECOIN, ctx: &mut TxContext) {
         let decimals = movescription::mcoin_decimals();
-        let (treasury, metadata) = coin::create_currency(witness, decimals, tick_name::move_tick(), tick_name::move_tick(), b"MOVE coin of Movescription", option::none(), ctx);
+        let (treasury, metadata) = coin::create_currency(
+            witness, 
+            decimals, 
+            tick_name::move_tick(), 
+            tick_name::move_tick(), 
+            b"MOVE coin of Movescription", 
+            option::some(new_unsafe_from_bytes(b"https://gk4id6fee24ru5cdipjxyz6cl42yjtzl3xfuizlpqjub42hx5rvq.arweave.net/MriB-KQmuRp0Q0PTfGfCXzWEzyvdy0Rlb4JoHmj37Gs")), 
+            ctx
+        );
         let args = movescription::new_init_treasury_args(std::ascii::string(tick_name::move_tick()), treasury, metadata, ctx);
         transfer::public_share_object(args);
     }
