@@ -21,6 +21,7 @@ module smartinscription::movescription_to_amm{
     const SUI_DECIMALS: u8 = 9;
     const CETUS_MIN_TICK_U32: u32 = 4294523696; // see test_check_postion_tick_range
     const CETUS_MAX_TICK_U32: u32 = 443600; // see test_check_postion_tick_range
+    const ReferenceFeeRewardPercent: u64 = 1;
 
     const ErrorTreasuryNotInited: u64 = 1;
     const ErrorCoinTypeMissMatch: u64 = 2;
@@ -173,6 +174,21 @@ module smartinscription::movescription_to_amm{
         let (balance_sui, balance_t) = do_collect_fee(config, pool, tick_record, ctx);
         transfer::public_transfer(coin::from_balance(balance_sui,ctx), tx_context::sender(ctx));
         transfer::public_transfer(coin::from_balance(balance_t, ctx), tx_context::sender(ctx));
+    }
+
+    /// Collect fee with reference, reward the reference with ReferenceFeeRewardPercent of the fee
+    public entry fun collect_fee_with_reference<T: drop>(config: &GlobalConfig, pool: &mut Pool<T,SUI>, tick_record: &mut TickRecordV2, reference: address, ctx: &mut TxContext){
+        let (balance_sui, balance_t) = do_collect_fee(config, pool, tick_record, ctx);
+        
+        let reward_sui_amount = balance::value(&balance_sui) * ReferenceFeeRewardPercent/100;
+        let reward_t_amount = balance::value(&balance_t) * ReferenceFeeRewardPercent/100;
+        let reward_sui = balance::split(&mut balance_sui, reward_sui_amount);
+        let reward_t = balance::split(&mut balance_t, reward_t_amount);
+        transfer::public_transfer(coin::from_balance(reward_sui, ctx), reference);
+        transfer::public_transfer(coin::from_balance(reward_t, ctx), reference);
+
+        transfer::public_transfer(coin::from_balance(balance_sui,ctx), reference);
+        transfer::public_transfer(coin::from_balance(balance_t, ctx), reference);
     }
 
     public fun do_collect_fee<T: drop>(config: &GlobalConfig, pool: &mut Pool<T,SUI>, tick_record: &mut TickRecordV2, ctx: &mut TxContext) :(Balance<T>, Balance<SUI>){
