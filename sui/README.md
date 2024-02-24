@@ -97,3 +97,29 @@ sui client call --package 0x5672d94180fc1199bb658b74087578708c2426ff3dd88b7d9203
 ```bash
 sui client call --package 0x5672d94180fc1199bb658b74087578708c2426ff3dd88b7d9203422015c44875 --module init --function init_protocol --gas-budget 1000000000 --args 0xa08c9f35d7b4ec428db8d2a6abb1f536ffba04222e79ad77b64d95a10a68a80c
 ```
+
+### v4.1
+* DeployTx: ErUsRmP68yFPoF6khFniHQsC3RSkd4wyZKaHtMmRCKfd
+* PackageID: 0xc120b57472d7d1b3e10efed0aca6a848242e927ad20e00008106536508651157
+
+### v4.1.1
+* DeployTx: 6Laa1ZtNN7G9E7yK8fW6tnMVKbE1jXDbLSBT77wRZPsF
+* PackageID: 0x58d8621fb9b6b20f476ffc862c2c37e8d759cb4511f0997acc780d39ad27ccc6
+* InitTreasuryArgs: 0x60f76695e81dba79ae856cd9b62474612113641f9f9d81931807ccc7b389b78b
+* MOVECOIN Type: 0x5f354890c0661633e7add642cdecd24c19d6f414b64d8404456698007203987e::movecoin::MOVECOIN
+* MOVECOIN Pool: 0x6f3c596a498e67f54e33e8d233a48edd8d18aae5d4bde22b3c40b05e52c64a4d
+
+Init MOVECOIN Treasury in MOVE TickRecord
+
+```bash
+sui client call --package 0x5f354890c0661633e7add642cdecd24c19d6f414b64d8404456698007203987e --module movecoin --function init_treasury --gas-budget 1000000000 --args 0x3b4b5fac644ec42e40b9f8a523d9bd93731b63629ba31c40658eb09a99c4174a 0x60f76695e81dba79ae856cd9b62474612113641f9f9d81931807ccc7b389b78b
+```
+
+Init pool for MOVECOIN
+```bash
+sui client call --package 0x58d8621fb9b6b20f476ffc862c2c37e8d759cb4511f0997acc780d39ad27ccc6 --module movescription_to_amm --function init_pool --gas-budget 1000000000 --args 0xc090b101978bd6370def2666b7a31d7d07704f84e833e108a969eda86150e8cf 0x6f4149091a5aea0e818e7243a13adcfb403842d670b9a2089de058512620687a 0x3b4b5fac644ec42e40b9f8a523d9bd93731b63629ba31c40658eb09a99c4174a $MOVE_MOVESCRIPTION_ID 0x6 --type-args 0x5f354890c0661633e7add642cdecd24c19d6f414b64d8404456698007203987e::movecoin::MOVECOIN
+```
+
+### v4.1.3
+* DeployTx: 4AhZXWBD6Vs9M8psqMMMPgywRc9j9BmNG4UNxUke8Luh
+* PackageID: 0x43f3cdc2170309a04576d9d655b5245e19ee058778d8cff3ca0d900d23c4b3ae
