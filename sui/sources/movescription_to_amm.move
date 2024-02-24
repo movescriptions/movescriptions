@@ -172,8 +172,9 @@ module smartinscription::movescription_to_amm{
 
     public entry fun collect_fee<T: drop>(config: &GlobalConfig, pool: &mut Pool<T,SUI>, tick_record: &mut TickRecordV2, ctx: &mut TxContext){
         let (balance_sui, balance_t) = do_collect_fee(config, pool, tick_record, ctx);
-        transfer::public_transfer(coin::from_balance(balance_sui,ctx), tx_context::sender(ctx));
-        transfer::public_transfer(coin::from_balance(balance_t, ctx), tx_context::sender(ctx));
+        let sender = tx_context::sender(ctx);
+        transfer::public_transfer(coin::from_balance(balance_sui,ctx), sender);
+        transfer::public_transfer(coin::from_balance(balance_t, ctx), sender);
     }
 
     /// Collect fee with reference, reward the reference with ReferenceFeeRewardPercent of the fee
@@ -186,9 +187,9 @@ module smartinscription::movescription_to_amm{
         let reward_t = balance::split(&mut balance_t, reward_t_amount);
         transfer::public_transfer(coin::from_balance(reward_sui, ctx), reference);
         transfer::public_transfer(coin::from_balance(reward_t, ctx), reference);
-
-        transfer::public_transfer(coin::from_balance(balance_sui,ctx), reference);
-        transfer::public_transfer(coin::from_balance(balance_t, ctx), reference);
+        let sender = tx_context::sender(ctx);
+        transfer::public_transfer(coin::from_balance(balance_sui,ctx), sender);
+        transfer::public_transfer(coin::from_balance(balance_t, ctx), sender);
     }
 
     public fun do_collect_fee<T: drop>(config: &GlobalConfig, pool: &mut Pool<T,SUI>, tick_record: &mut TickRecordV2, ctx: &mut TxContext) :(Balance<T>, Balance<SUI>){
