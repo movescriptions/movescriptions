@@ -3,7 +3,9 @@ name = "MoveCoin"
 authors = ["Pika", "10xhunter", "jolestar", "jojoo-eth"]
 version = "1.0"
 #testnet
-published-at = "0x5f354890c0661633e7add642cdecd24c19d6f414b64d8404456698007203987e"
+#published-at = "0x5f354890c0661633e7add642cdecd24c19d6f414b64d8404456698007203987e"
+#mainnet
+published-at = "0x648f9eab1434c056d509ad857fb657ac170528798d771f7eb1edc35639e3e75c"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.17.3", override = true}
@@ -11,5 +13,7 @@ SmartInscription = { local = "../" }
 
 [addresses]
 #testnet
-smartinscription = "0x5f354890c0661633e7add642cdecd24c19d6f414b64d8404456698007203987e"
+#movecoin = "0x5f354890c0661633e7add642cdecd24c19d6f414b64d8404456698007203987e"
+#mainnet
+movecoin = "0x648f9eab1434c056d509ad857fb657ac170528798d771f7eb1edc35639e3e75c"
 #movecoin = "0x0"

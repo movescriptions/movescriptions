@@ -39,21 +39,14 @@
 * DeployTx: BrfULYijSWsmCrEqFj63KpQVs3nrXQcqnenK6P9sxybY
 * PackageID: 0x10374be731f62d816c15c58a3f5d142936b41ef3584dff55ba55af3cf4895f10
 
-### v4.0.0
-* DeployTx: 3gNhReVjmPmLNr5RbLD8c2h1FLV8NNUzP2AdJE4WGaFZ
-* PackageID: 0x1f82c47f89cd6117d13e4441baa2d8a9e5a5a0947575a805949450e80a821597
-
-### v4.0.1 
-* DeployTx: B6k1mDam8wixCa7jr3rbULCk5E8S3D6DwbEaYwU7wVeD
-* PackageID: 0x0c4eb8a13f4b58916a5d6d674675e96bf92a56b225833f936880a525d2aba3c4
-
-### v4.0.2
-* DeployTx: 8jDjAmMrajXTqSMdgB96NfzAmfSATsibAiBtQCUZhca1
-* PackageID: 0x191862328a5ff291984c3657e711df628d404f66da9610e4ec7bc73547988fcd
-
 ### v4.0.3
 * DeployTx: 6JszkSUWkSHMoBmmwGPf7cmRWRNGGSacLKrviuvmhubj
 * PackageID: 0xbaaa200e83ceae97f45251297c8870be5d00fb392f0bc7a5716bdf95e75f3c92
+
+### v4.1.3
+* DeployTx: 3aKqzcQ5KAEt5dzQu6y2cGSwpNyTMBxkWcAjiguTYfb7
+* PackageID: 0xf714a259a9a66f4d7e72d4e6c658cc3294d8cbe8b579853be0ef42fd053b2e74
+* MOVECOIN: 0x648f9eab1434c056d509ad857fb657ac170528798d771f7eb1edc35639e3e75c::movecoin::MOVECOIN
 
 ## Testnet
 
