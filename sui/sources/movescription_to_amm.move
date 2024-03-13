@@ -151,7 +151,7 @@ module smartinscription::movescription_to_amm{
         delta_liquidity: u128, 
         clk: &Clock, 
         ctx: &mut TxContext
-    ) : (Movescription, Balance<T>) {
+    ): (Movescription, Balance<T>) {
         assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
         assert!(movescription::tick_record_exists_df<Positions>(tick_record), ErrorPoolNotInited);
         let positions = movescription::tick_record_borrow_mut_df_internal<Positions>(tick_record);
@@ -185,7 +185,7 @@ module smartinscription::movescription_to_amm{
         pool: &mut Pool<T,SUI>, 
         tick_record: &mut TickRecordV2, 
         clk: &Clock, ctx: &mut TxContext
-    ) : (Movescription, Balance<T>) {
+    ): (Movescription, Balance<T>) {
         assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
         assert!(movescription::tick_record_exists_df<Positions>(tick_record), ErrorPoolNotInited);
         let positions = movescription::tick_record_borrow_mut_df_internal<Positions>(tick_record);
@@ -238,7 +238,7 @@ module smartinscription::movescription_to_amm{
         pool: &mut Pool<T,SUI>, 
         tick_record: &mut TickRecordV2, 
         ctx: &mut TxContext
-    ) :(Balance<T>, Balance<SUI>) {
+    ): (Balance<T>, Balance<SUI>) {
         assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
         assert!(movescription::tick_record_exists_df<Positions>(tick_record), ErrorPoolNotInited);
         let positions = movescription::tick_record_borrow_df<Positions>(tick_record);
@@ -372,7 +372,7 @@ module smartinscription::movescription_to_amm{
         balance_b: Balance<CoinTypeB>,
         a2b: bool, 
         clk: &Clock
-    ) : (Balance<CoinTypeA>, Balance<CoinTypeB>) {
+    ): (Balance<CoinTypeA>, Balance<CoinTypeB>) {
         let amount_a = balance::value(&balance_a);
         let amount_b = balance::value(&balance_b);
 
