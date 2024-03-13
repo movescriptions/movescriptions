@@ -1084,6 +1084,16 @@ module smartinscription::movescription {
         coin_to_movescription(tick_record, acc, locked, metadata, balance_t, ctx)
     }
 
+    #[test_only]
+    public fun borrow_incentive_for_testing<T: drop>(tick_record: &TickRecordV2): &Balance<T> {
+        borrow_incentive<T>(tick_record)
+    }
+
+    #[test_only]
+    public fun borrow_mut_incentive_for_testing<T: drop>(tick_record: &mut TickRecordV2): &mut Balance<T> {
+        borrow_mut_incentive<T>(tick_record)
+    }
+
     // ====== Deprecated Structs and  Functions ======
 
     struct InscriptionBalance<phantom T> has copy, drop, store { }

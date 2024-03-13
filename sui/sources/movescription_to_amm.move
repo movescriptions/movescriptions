@@ -15,7 +15,7 @@ module smartinscription::movescription_to_amm{
     use cetus_clmm::tick_math;
     use cetus_clmm::clmm_math;
     use cetus_clmm::rewarder::{Self, RewarderGlobalVault};
-    use integer_mate::i32::I32;
+    use integer_mate::i32::{Self, I32};
     use smartinscription::movescription::{Self, Movescription, TickRecordV2};
 
     const CETUS_TICK_SPACING: u32 = 200;
