@@ -32,6 +32,7 @@ module smartinscription::movescription {
     const PROTOCOL_START_TIME_MS: u64 = 1704038400*1000;
     const MOVE_TICK_TOTAL_SUPPLY: u64 = 100_0000_0000;
     const TREASURY_FIELD_NAME: vector<u8> = b"treasury";
+    const INCENTIVE_FIELD_NAME: vector<u8> = b"incentive";
     const MCOIN_DECIMALS: u8 = 9;
     const MCOIN_DECIMALS_BASE: u64 = 1_000_000_000;
     
@@ -641,6 +642,34 @@ module smartinscription::movescription {
             option::destroy_none(locked);
         };
         (movescription, balance_t)
+    }
+
+    // ===== Treasury functions =====
+    public fun add_incentive<T: drop>(
+        tick_record: &mut TickRecordV2
+    ) {
+        assert!(tick_record.version <= VERSION, ErrorVersionMismatched);
+        let burn_amount = tick_record.total_supply - tick_record.stat.current_supply;
+        let burn_value = burn_amount * MCOIN_DECIMALS_BASE;
+        let treasury = borrow_mut_treasury<T>(tick_record);
+        let mint_coin_value = coin::total_supply<T>(&treasury.cap);
+        let to_mint_value = burn_value - mint_coin_value;  // will abort if burn_value < mint_coin_value
+        let incentive_balance = coin::mint_balance(&mut treasury.cap, to_mint_value);
+
+        if (!df::exists_<vector<u8>>(&tick_record.id, INCENTIVE_FIELD_NAME)) {
+            df::add(&mut tick_record.id, INCENTIVE_FIELD_NAME, incentive_balance);
+        } else {
+            let balance_bm = df::borrow_mut<vector<u8>, Balance<T>>(&mut tick_record.id, INCENTIVE_FIELD_NAME);
+            balance::join<T>(balance_bm, incentive_balance);
+        };
+    }
+
+    public(friend) fun borrow_mut_incentive<T: drop>(tick_record: &mut TickRecordV2) : &mut Balance<T> {
+        df::borrow_mut(&mut tick_record.id, INCENTIVE_FIELD_NAME)
+    }
+
+    public(friend) fun borrow_incentive<T: drop>(tick_record: &TickRecordV2) : &Balance<T> {
+        df::borrow(&tick_record.id, INCENTIVE_FIELD_NAME)
     }
 
     // ===== Dynamic Field functions =====
