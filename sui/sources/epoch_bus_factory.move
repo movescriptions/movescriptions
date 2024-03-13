@@ -99,12 +99,17 @@ module smartinscription::epoch_bus_factory{
         init_locked_sui: u64,
         start_time_ms: u64,
         epoch_count: u64, 
-        clock: &Clock,
-        ctx: &mut TxContext) {
+        clk: &Clock,
+        ctx: &mut TxContext
+    ) {
         assert_util::assert_tick_tick(&tick_name);
         assert!(epoch_count >= MIN_EPOCHS, ErrorInvalidEpoch);
         
-        let tick_record = tick_factory::do_deploy(deploy_record, tick_tick_record, tick_name, total_supply, true, WITNESS{}, clock, ctx);
+        let now = clock::timestamp_ms(clk);
+        if (start_time_ms < now) {
+            start_time_ms = now;
+        };
+        let tick_record = tick_factory::do_deploy(deploy_record, tick_tick_record, tick_name, total_supply, true, WITNESS{}, clk, ctx);
         after_deploy(tick_record, total_supply, init_locked_sui, start_time_ms, epoch_count, ctx);
     }
 
