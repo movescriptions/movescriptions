@@ -33,6 +33,7 @@ module smartinscription::movescription {
     const MOVE_TICK_TOTAL_SUPPLY: u64 = 100_0000_0000;
     const TREASURY_FIELD_NAME: vector<u8> = b"treasury";
     const INCENTIVE_FIELD_NAME: vector<u8> = b"incentive";
+    const BURN_TO_COIN_FIELD_NAME: vector<u8> = b"burn_to_coin";
     const MCOIN_DECIMALS: u8 = 9;
     const MCOIN_DECIMALS_BASE: u64 = 1_000_000_000;
     
@@ -649,11 +650,18 @@ module smartinscription::movescription {
         tick_record: &mut TickRecordV2
     ) {
         assert!(tick_record.version <= VERSION, ErrorVersionMismatched);
+
+        if (!df::exists_<vector<u8>>(&tick_record.id, BURN_TO_COIN_FIELD_NAME)) {
+            df::add(&mut tick_record.id, BURN_TO_COIN_FIELD_NAME, 0);
+        };
+
+        let burn_to_coin = df::borrow_mut(&mut tick_record.id, BURN_TO_COIN_FIELD_NAME);
         let burn_amount = tick_record.total_supply - tick_record.stat.current_supply;
         let burn_value = burn_amount * MCOIN_DECIMALS_BASE;
+        let to_mint_value = burn_value - *burn_to_coin;  // will abort if burn_value < burn_to_coin
+        *burn_to_coin = *burn_to_coin + to_mint_value;
+
         let treasury = borrow_mut_treasury<T>(tick_record);
-        let mint_coin_value = coin::total_supply<T>(&treasury.cap);
-        let to_mint_value = burn_value - mint_coin_value;  // will abort if burn_value < mint_coin_value
         let incentive_balance = coin::mint_balance(&mut treasury.cap, to_mint_value);
 
         if (!df::exists_<vector<u8>>(&tick_record.id, INCENTIVE_FIELD_NAME)) {
