@@ -15,7 +15,7 @@ module smartinscription::movescription_to_amm{
     use cetus_clmm::tick_math;
     use cetus_clmm::clmm_math;
     use cetus_clmm::rewarder::{Self, RewarderGlobalVault};
-    use integer_mate::i32::{Self, I32};
+    use integer_mate::i32::I32;
     use smartinscription::movescription::{Self, Movescription, TickRecordV2};
 
     const CETUS_TICK_SPACING: u32 = 200;
@@ -282,12 +282,22 @@ module smartinscription::movescription_to_amm{
         swap(config, pool, balance::zero<T>(), coin::into_balance(sui), false, clk)
     }
 
-    public fun do_deposit_reward<CoinType>(
+    public entry fun deposit_reward<T: drop>(
         config: &GlobalConfig,
         vault: &mut RewarderGlobalVault,
         tick_record: &mut TickRecordV2, 
     ) {
-        
+        do_deposit_reward<T>(config, vault, tick_record);
+    }
+
+    public fun do_deposit_reward<T: drop>(
+        config: &GlobalConfig,
+        vault: &mut RewarderGlobalVault,
+        tick_record: &mut TickRecordV2, 
+    ) {
+        let balance_bm = movescription::borrow_mut_incentive<T>(tick_record);
+        let balance_take = balance::withdraw_all<T>(balance_bm);
+        rewarder::deposit_reward<T>(config, vault, balance_take);
     }
 
     fun add_liquidity_with_swap<T:drop>(
