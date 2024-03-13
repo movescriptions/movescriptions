@@ -1050,7 +1050,8 @@ module smartinscription::movescription {
         locked: Option<Movescription>, 
         metadata: Option<Metadata>, 
         balance_t: Balance<T>, 
-        ctx: &mut TxContext):(Movescription, Balance<T>){
+        ctx: &mut TxContext
+    ): (Movescription, Balance<T>) {
         coin_to_movescription(tick_record, acc, locked, metadata, balance_t, ctx)
     }
 
