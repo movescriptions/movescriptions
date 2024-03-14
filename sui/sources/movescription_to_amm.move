@@ -286,17 +286,23 @@ module smartinscription::movescription_to_amm{
         config: &GlobalConfig,
         vault: &mut RewarderGlobalVault,
         tick_record: &mut TickRecordV2, 
+        value: u64
     ) {
-        do_deposit_reward<T>(config, vault, tick_record);
+        do_deposit_reward<T>(config, vault, tick_record, value);
     }
 
     public fun do_deposit_reward<T: drop>(
         config: &GlobalConfig,
         vault: &mut RewarderGlobalVault,
         tick_record: &mut TickRecordV2, 
+        value: u64
     ) {
         let balance_bm = movescription::borrow_mut_incentive<T>(tick_record);
-        let balance_take = balance::withdraw_all<T>(balance_bm);
+        let balance_take = if (value != 0) {
+            balance::split<T>(balance_bm, value)
+        } else {
+            balance::withdraw_all<T>(balance_bm)
+        };
         rewarder::deposit_reward<T>(config, vault, balance_take);
     }
 
