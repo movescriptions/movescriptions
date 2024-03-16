@@ -11,7 +11,7 @@ module smartinscription::movescription {
     use sui::table::{Self, Table};
     use sui::sui::SUI;
     use sui::clock::{Clock};
-    use sui::package;
+    use sui::package::{Self, Publisher};
     use sui::display;
     use sui::dynamic_field as df;
     use smartinscription::string_util::{to_uppercase};
@@ -884,6 +884,12 @@ module smartinscription::movescription {
     public fun unpack_metadata(metadata: Metadata): (std::string::String, vector<u8>){
         let Metadata{content_type, content} = metadata;
         (content_type, content)
+    }
+
+    // ======= Internal cap functions ========
+
+    public(friend) fun is_movescription_publisher(publisher: &Publisher): bool{
+        package::from_module<Movescription>(publisher)
     }
 
     // ======== Constants functions =========

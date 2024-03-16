@@ -8,6 +8,7 @@ module smartinscription::movescription_to_amm{
     use sui::table::{Self, Table};
     use sui::transfer;
     use sui::math;
+    use sui::package::{Publisher};
     use cetus_clmm::factory::{Self, Pools};
     use cetus_clmm::pool::{Self, Pool};
     use cetus_clmm::position::{Self, Position};
@@ -32,6 +33,7 @@ module smartinscription::movescription_to_amm{
     const ErrorNoLiquidity: u64 = 6;
     const ErrorInvalidInitLiquidity: u64 = 7;
     const ErrorInvalidState: u64 = 8;
+    const ErrorInvalidCap: u64 = 9;
 
     struct Positions has store{
         positions: Table<address, Position>,
@@ -286,17 +288,22 @@ module smartinscription::movescription_to_amm{
         config: &GlobalConfig,
         vault: &mut RewarderGlobalVault,
         tick_record: &mut TickRecordV2, 
-        value: u64
+        value: u64,
+        publisher: &mut Publisher,
     ) {
-        do_deposit_reward<T>(config, vault, tick_record, value);
+        do_deposit_reward<T>(config, vault, tick_record, value, publisher);
     }
 
     public fun do_deposit_reward<T: drop>(
         config: &GlobalConfig,
         vault: &mut RewarderGlobalVault,
         tick_record: &mut TickRecordV2, 
-        value: u64
+        value: u64,
+        publisher: &mut Publisher,
     ) {
+        assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
+        assert!(movescription::is_movescription_publisher(publisher), ErrorInvalidCap);
+
         let balance_bm = movescription::borrow_mut_incentive<T>(tick_record);
         let balance_take = if (value != 0) {
             balance::split<T>(balance_bm, value)
