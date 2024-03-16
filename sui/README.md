@@ -116,3 +116,7 @@ sui client call --package 0x58d8621fb9b6b20f476ffc862c2c37e8d759cb4511f0997acc78
 ### v4.1.3
 * DeployTx: 4AhZXWBD6Vs9M8psqMMMPgywRc9j9BmNG4UNxUke8Luh
 * PackageID: 0x43f3cdc2170309a04576d9d655b5245e19ee058778d8cff3ca0d900d23c4b3ae
+
+### v4.1.4
+* DeployTx: 5hJZb4zsExzhNPLoicqkpShAQNggxeqMU84XLiR8uEPo
+* PackageID: 0x1e4f8336f50856d419a999167b9f81db93798eb6259a08b1fff6cc05009e8f4f
