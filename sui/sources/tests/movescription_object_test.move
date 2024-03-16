@@ -285,9 +285,19 @@ module smartinscription::movescription_object_test{
         let tick = string(b"MOVE");
         let tick_record = movescription::new_tick_record_for_testing(tick, 10000, 1000, true, WITNESS{}, &mut ctx);
         movescription::init_treasury_for_testing<MOVECOIN>(&mut tick_record, &mut ctx);
+
+        let burn_amount = 100;
+        let tick_movescription = movescription::do_mint_with_witness(&mut tick_record, balance::zero<SUI>(), burn_amount, option::none(), WITNESS{}, &mut ctx);
+        movescription::burn_v2(&mut tick_record, tick_movescription, &mut ctx);
+        std::debug::print(&movescription::tick_record_v2_burned_amount(&tick_record));
+        assert!(movescription::tick_record_v2_burned_amount(&tick_record) == burn_amount, 0);
+
         movescription::add_incentive<MOVECOIN>(&mut tick_record);
+
+        assert!(movescription::coin_supply<MOVECOIN>(&tick_record) == burn_amount * movescription::mcoin_decimals_base(), 1);
+
         let balance_incentive_b = movescription::borrow_incentive_for_testing<MOVECOIN>(&tick_record);
-        assert!(balance::value(balance_incentive_b) == ((10000 - 1000) * 1000000000), 1);
+        assert!(balance::value(balance_incentive_b) == (burn_amount * movescription::mcoin_decimals_base()), 2);
         movescription::drop_tick_record_for_testing(tick_record);
     }
 }

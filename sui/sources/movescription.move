@@ -155,6 +155,11 @@ module smartinscription::movescription {
         message: std::string::String,
     }
 
+    struct IncentiveEvent has copy, drop{
+        to_mint_value: u64,
+        new_burn_to_coin: u64,
+    }
+
     // ======== Functions =========
     fun init(otw: MOVESCRIPTION, ctx: &mut TxContext) {
         let deploy_record = DeployRecord { id: object::new(ctx), version: VERSION, record: table::new(ctx) };
@@ -654,16 +659,18 @@ module smartinscription::movescription {
         if (!df::exists_<vector<u8>>(&tick_record.id, BURN_TO_COIN_FIELD_NAME)) {
             df::add(&mut tick_record.id, BURN_TO_COIN_FIELD_NAME, 0);
         };
-
+        let burn_amount = tick_record_v2_burned_amount(tick_record);
         let burn_to_coin = df::borrow_mut(&mut tick_record.id, BURN_TO_COIN_FIELD_NAME);
-        let burn_amount = tick_record.total_supply - tick_record.stat.current_supply;
         let burn_value = burn_amount * MCOIN_DECIMALS_BASE;
         let to_mint_value = burn_value - *burn_to_coin;  // will abort if burn_value < burn_to_coin
         *burn_to_coin = *burn_to_coin + to_mint_value;
-
+        let new_burn_to_coin = *burn_to_coin;
         let treasury = borrow_mut_treasury<T>(tick_record);
         let incentive_balance = coin::mint_balance(&mut treasury.cap, to_mint_value);
-
+        emit(IncentiveEvent {
+            to_mint_value: to_mint_value,
+            new_burn_to_coin,
+        });
         if (!df::exists_<vector<u8>>(&tick_record.id, INCENTIVE_FIELD_NAME)) {
             df::add(&mut tick_record.id, INCENTIVE_FIELD_NAME, incentive_balance);
         } else {
@@ -805,6 +812,10 @@ module smartinscription::movescription {
         tick_record.stat.total_transactions
     }
 
+    public fun tick_record_v2_burned_amount(tick_record: &TickRecordV2): u64 {
+        tick_record.total_supply - tick_record.stat.current_supply - tick_record.stat.remain
+    }
+
     // ======== TickRecordV2 df functions =========
 
     public fun tick_record_add_df<V: store, W: drop>(tick_record: &mut TickRecordV2, value: V, _witness: W) {
@@ -914,6 +925,10 @@ module smartinscription::movescription {
 
     public fun mcoin_decimals(): u8{
         MCOIN_DECIMALS
+    }
+
+    public fun mcoin_decimals_base(): u64{
+        MCOIN_DECIMALS_BASE
     }
 
     // ===== Migrate functions =====
