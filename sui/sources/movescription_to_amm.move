@@ -313,6 +313,42 @@ module smartinscription::movescription_to_amm{
         rewarder::deposit_reward<T>(config, vault, balance_take);
     }
 
+    public entry fun collect_reward<T: drop>(
+        config: &GlobalConfig, 
+        pool: &mut Pool<T,SUI>, 
+        tick_record: &mut TickRecordV2,
+        vault: &mut RewarderGlobalVault,
+        clock: &Clock,
+        ctx: &mut TxContext,
+    ) {
+        let reward_balance = do_collect_reward(config, pool, tick_record, vault, clock, ctx);
+        transfer::public_transfer(coin::from_balance(reward_balance, ctx), tx_context::sender(ctx));
+    }
+
+    public fun do_collect_reward<T: drop>(
+        config: &GlobalConfig, 
+        pool: &mut Pool<T,SUI>, 
+        tick_record: &mut TickRecordV2,
+        vault: &mut RewarderGlobalVault,
+        clock: &Clock,
+        ctx: &mut TxContext,
+    ): Balance<T> {
+        assert!(movescription::check_coin_type<T>(tick_record), ErrorCoinTypeMissMatch);
+        assert!(movescription::tick_record_exists_df<Positions>(tick_record), ErrorPoolNotInited);
+        let positions = movescription::tick_record_borrow_mut_df_internal<Positions>(tick_record);
+        let sender = tx_context::sender(ctx);
+        assert!(table::contains(&positions.positions, sender), ErrorNoLiquidity);
+        let position_nft = table::borrow_mut(&mut positions.positions, sender); 
+        pool::collect_reward<T, SUI, T>(
+            config,
+            pool,
+            position_nft,
+            vault,
+            true,
+            clock
+        )
+    }
+
     fun add_liquidity_with_swap<T:drop>(
         config: &GlobalConfig, 
         pool: &mut Pool<T,SUI>, 
