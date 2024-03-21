@@ -26,6 +26,7 @@ module smartinscription::epoch_bus_factory{
 
     const ErrorEpochNotStarted: u64 = 1;
     const ErrorInvalidEpoch: u64 = 2;
+    const ErrorNotEnoughToMint: u64 = 3;
 
     struct EpochRecord has store {
         epoch: u64,
@@ -147,6 +148,7 @@ module smartinscription::epoch_bus_factory{
         clk: &Clock,
         ctx: &mut TxContext
     ) {
+        assert!(movescription::tick_record_v2_remain(tick_record) > 0, ErrorNotEnoughToMint);
         let now_ms = clock::timestamp_ms(clk);
         let tick: String = movescription::tick_record_v2_tick(tick_record);
 

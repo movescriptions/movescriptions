@@ -1,9 +1,9 @@
 [package]
 name = "SmartInscription"
 authors = ["Pika", "10xhunter", "jolestar", "jojoo-eth"]
-version = "4.1.6"
+version = "4.1.7"
 #mainnet
-published-at = "0xa296754b816dd405a435c669d35869d12a532516c9f49220ef181dcf50b82b35"
+published-at = "0xb3e7870f4f145a55c698a90e625551c743b6bac04486306ef3ed372c1e180dfc"
 #testnet
 #published-at = "0x1258e7b1a145ed6cf91d17d4fd034a27458135df3eed6ac3dfa7158864a8ae35"
 #devnet
@@ -18,7 +18,7 @@ IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", subdi
 
 [addresses]
 #mainnet
-smartinscription = "0x830fe26674dc638af7c3d84030e2575f44a2bdc1baa1f4757cfe010a4b106b6a"
+#smartinscription = "0x830fe26674dc638af7c3d84030e2575f44a2bdc1baa1f4757cfe010a4b106b6a"
 #testnet
 #smartinscription = "0x757a3250eaaa0ab7f2873f70e496688e35b27928a2d4a31bec996a9f35ba8686"
-#smartinscription = "0x0"
+smartinscription = "0x0"

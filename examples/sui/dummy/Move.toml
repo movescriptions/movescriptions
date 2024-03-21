@@ -6,7 +6,7 @@ version = "0.0.1"
 #published-at = "0x92ad036a933f44f0f132e9cd6a539f3a9ae481bd3ee99ed6b4b213afecb7c515"
 
 [dependencies]
-#Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.17.3", override = true}
 SmartInscription = { git = "https://github.com/movescriptions/movescriptions", subdir="sui", rev="sui-testnet" }
 
 [addresses]
