@@ -19,9 +19,9 @@ module smartinscription::mint_get_factory {
     const ErrorInvalidInitLockedArgs: u64 = 1;
     const ErrorInvalidMintFunction: u64 = 2;
     
-    struct WITNESS has drop{}
+    struct WITNESS has drop {}
 
-    struct MintGetFactory has store{
+    struct MintGetFactory has store {
         amount_per_mint: u64, 
         init_locked_sui: u64, 
         init_locked_move: u64,
@@ -46,7 +46,8 @@ module smartinscription::mint_get_factory {
         init_locked_sui: u64, 
         init_locked_move: u64,
         clock: &Clock,
-        ctx: &mut TxContext) {
+        ctx: &mut TxContext
+    ) {
         do_deploy(deploy_record, tick_tick_record, tick_name, total_supply, amount_per_mint, init_locked_sui, init_locked_move, clock, ctx);
     }
 
@@ -60,7 +61,8 @@ module smartinscription::mint_get_factory {
         init_locked_sui: u64, 
         init_locked_move: u64,
         clock: &Clock,
-        ctx: &mut TxContext) {
+        ctx: &mut TxContext
+    ) {
         assert_util::assert_tick_tick(&tick_name);
         //Only support locked sui or locked move
         assert!((init_locked_move==0&&init_locked_sui==0) || (init_locked_move>0&&init_locked_sui==0) || (init_locked_sui>0&&init_locked_move==0), ErrorInvalidInitLockedArgs);
@@ -73,7 +75,8 @@ module smartinscription::mint_get_factory {
         tick_record: TickRecordV2,
         amount_per_mint: u64, 
         init_locked_sui: u64,
-        init_locked_move: u64) {
+        init_locked_move: u64
+    ) {
         let factory = MintGetFactory{
             amount_per_mint: amount_per_mint,
             init_locked_sui: init_locked_sui, 
@@ -88,7 +91,8 @@ module smartinscription::mint_get_factory {
     public entry fun mint_with_move(
         tick_record: &mut TickRecordV2,
         locked_move: Movescription,
-        ctx: &mut TxContext) {
+        ctx: &mut TxContext
+    ) {
         let sender = tx_context::sender(ctx);
         let ms = do_mint_with_move(tick_record, locked_move,ctx);
         transfer::public_transfer(ms, sender);
@@ -97,7 +101,8 @@ module smartinscription::mint_get_factory {
     public fun do_mint_with_move(
         tick_record: &mut TickRecordV2,
         locked_move: Movescription,
-        ctx: &mut TxContext) : Movescription {
+        ctx: &mut TxContext
+    ): Movescription {
         assert_util::assert_move_tick(&locked_move);
 
         let mint_get_factory = movescription::tick_record_borrow_mut_df<MintGetFactory, WITNESS>(tick_record, WITNESS{});
@@ -110,7 +115,8 @@ module smartinscription::mint_get_factory {
     public entry fun mint_with_sui(
         tick_record: &mut TickRecordV2,
         locked_sui: Coin<SUI>,
-        ctx: &mut TxContext) {
+        ctx: &mut TxContext
+    ) {
         let sender = tx_context::sender(ctx);
         let ms = do_mint_with_sui(tick_record, locked_sui, ctx);
         transfer::public_transfer(ms, sender);
@@ -119,8 +125,8 @@ module smartinscription::mint_get_factory {
     public fun do_mint_with_sui(
         tick_record: &mut TickRecordV2,
         locked_sui: Coin<SUI>,
-        ctx: &mut TxContext) : Movescription {
-    
+        ctx: &mut TxContext
+    ): Movescription {
         let mint_get_factory = movescription::tick_record_borrow_mut_df<MintGetFactory, WITNESS>(tick_record, WITNESS{});
         assert!(mint_get_factory.init_locked_sui > 0, ErrorInvalidMintFunction);
 
@@ -129,18 +135,18 @@ module smartinscription::mint_get_factory {
     }
 
     #[lint_allow(self_transfer)]
-    public entry fun mint(tick_record: &mut TickRecordV2, ctx: &mut TxContext){
+    public entry fun mint(tick_record: &mut TickRecordV2, ctx: &mut TxContext) {
         let ms = do_mint(tick_record, ctx);
         transfer::public_transfer(ms, tx_context::sender(ctx));
     }
     
-    public fun do_mint(tick_record: &mut TickRecordV2, ctx: &mut TxContext): Movescription{
+    public fun do_mint(tick_record: &mut TickRecordV2, ctx: &mut TxContext): Movescription {
         let mint_get_factory = movescription::tick_record_borrow_mut_df<MintGetFactory, WITNESS>(tick_record, WITNESS{});
         assert!(mint_get_factory.init_locked_sui == 0 && mint_get_factory.init_locked_move == 0, ErrorInvalidMintFunction);
         internal_mint(tick_record, mint_get_factory.amount_per_mint, balance::zero<SUI>(), option::none(), ctx)
     }
 
-    fun internal_mint(tick_record: &mut TickRecordV2, amount_per_mint: u64, init_locked_sui: Balance<SUI>, init_locked_move: Option<Movescription>, ctx: &mut TxContext): Movescription{
+    fun internal_mint(tick_record: &mut TickRecordV2, amount_per_mint: u64, init_locked_sui: Balance<SUI>, init_locked_move: Option<Movescription>, ctx: &mut TxContext): Movescription {
         let remain = movescription::tick_record_v2_remain(tick_record);
         let amount = if(remain < amount_per_mint){
             remain
