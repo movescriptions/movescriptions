@@ -102,6 +102,7 @@ module smartinscription::mint_ratio_50_factory {
         fee_sui: &mut Coin<SUI>,
         ctx: &mut TxContext
     ): Movescription {
+        let remain = movescription::tick_record_v2_remain(tick_record);
         let mint_ratio_factory = movescription::tick_record_borrow_mut_df<MintRatioFactory, WITNESS>(tick_record, WITNESS{});
         let sui_value = coin::value(fee_sui);
         assert!(sui_value >= mint_ratio_factory.min_value_sui, ENotEnoughSui);
@@ -122,8 +123,13 @@ module smartinscription::mint_ratio_50_factory {
             table_vec::push_back<address>(&mut mint_ratio_factory.participants, sender);
         };
 
-        let locked_sui = coin::into_balance<SUI>(coin::split<SUI>(fee_sui, sui_value, ctx));
         let amount = ((((sui_value as u128) * (mint_ratio_factory.amount_per_sui)) / SUI_BASE) as u64);
+
+        if (amount > remain) {
+            amount = remain;
+            sui_value = ((((amount as u128) * SUI_BASE) / (mint_ratio_factory.amount_per_sui)) as u64);
+        };
+        let locked_sui = coin::into_balance<SUI>(coin::split<SUI>(fee_sui, sui_value, ctx));
         let minted_movescription = movescription::do_mint_with_witness(tick_record, locked_sui, amount, option::none(), WITNESS{}, ctx);
         minted_movescription
     }
