@@ -40,11 +40,11 @@ module smartinscription::mint_ratio_50_factory_scenario_test {
             test_scenario::next_tx(scenario, sender);
             test_scenario::take_shared<movescription::TickRecordV2>(scenario)
         };
-
+        clock::increment_for_testing(&mut clock, 1);
         test_scenario::next_tx(scenario, sender);
         {
             let test_sui = coin::mint_for_testing<SUI>(min_value_sui, test_scenario::ctx(scenario));
-            let ms = mint_ratio_50_factory::do_mint(&mut test_mint_with_sui_record, &mut test_sui,test_scenario::ctx(scenario));
+            let ms = mint_ratio_50_factory::do_mint_v2(&mut test_mint_with_sui_record, &mut test_sui, &clock, test_scenario::ctx(scenario));
             assert!(movescription::amount(&ms) == 300_000, 1);
             assert!(movescription::acc(&ms) == min_value_sui, 2);
             transfer::public_transfer(ms, sender);
@@ -54,7 +54,7 @@ module smartinscription::mint_ratio_50_factory_scenario_test {
         test_scenario::next_tx(scenario, sender);
         {
             let test_sui = coin::mint_for_testing<SUI>(max_value_sui, test_scenario::ctx(scenario));
-            let ms = mint_ratio_50_factory::do_mint(&mut test_mint_with_sui_record, &mut test_sui,test_scenario::ctx(scenario));
+            let ms = mint_ratio_50_factory::do_mint_v2(&mut test_mint_with_sui_record, &mut test_sui, &clock, test_scenario::ctx(scenario));
             assert!(movescription::amount(&ms) == 2_700_000, 1);
             assert!(movescription::acc(&ms) == 9_000_000_000, 2);
             transfer::public_transfer(ms, sender);
