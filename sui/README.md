@@ -73,9 +73,9 @@ sui client call --package 0xa296754b816dd405a435c669d35869d12a532516c9f49220ef18
 * DeployTx: 7HeHsfZWKQpWrzjs1NaVPZSdWhGG1QLFHq85hEsJMAFb
 * PackageID: 0xb3e7870f4f145a55c698a90e625551c743b6bac04486306ef3ed372c1e180dfc
 
-### v4.2
-* DeployTx: 4WGc5GVrQkWvwWhTxbs32TX1uFcUEknQp8ADFfkXXQ9i
-* PackageID: 0x0557194165ccd4a9e38184fa59ad388e1aa7f99fee7a2bad4bee432a64cbef67
+### v4.2.1
+* DeployTx: 6wPbXcZmzvCxbeVpUUEKgjBCL6dqh3t8R3XLwvafGs9u
+* PackageID: 0x6d773a8c66acb2db36d92515c8e071f4ed4bed1b3658ac9fbd6d4106d1db3027
 
 
 ## Testnet
@@ -161,6 +161,6 @@ sui client call --package 0x1258e7b1a145ed6cf91d17d4fd034a27458135df3eed6ac3dfa7
 sui client call --package 0x1258e7b1a145ed6cf91d17d4fd034a27458135df3eed6ac3dfa7158864a8ae35 --module movescription_to_amm --function collect_reward --gas-budget 1000000000 --args 0x6f4149091a5aea0e818e7243a13adcfb403842d670b9a2089de058512620687a 0x6f3c596a498e67f54e33e8d233a48edd8d18aae5d4bde22b3c40b05e52c64a4d 0x3b4b5fac644ec42e40b9f8a523d9bd93731b63629ba31c40658eb09a99c4174a 0xf3114a74d54cbe56b3e68f9306661c043ede8c6615f0351b0c3a93ce895e1699 0x6 --type-args 0x5f354890c0661633e7add642cdecd24c19d6f414b64d8404456698007203987e::movecoin::MOVECOIN
 ```
 
-### v4.2
-* DeployTx: 3HYzszFHX7ae9qxrGtS69NQwHjUXWv15tJ4ydGFBoJLTR
-* PackageID: 0x1bf3dd0c326d297906b8372619e8cb856748c501d2be140b9d91e2cffa567512
+### v4.2.1
+* DeployTx: BS8sLJWfiGf5X5S8FsxJayFW5PQaTqyqW68HTMUS7kju
+* PackageID: 0x7c68e13881459da0e6e0be81e0e08e3416283a676f0c2ec90440be6f01c6bd0b
