@@ -15,9 +15,11 @@ module smartinscription::mint_ratio_50_factory {
 
     const SUI_BASE: u128 = 1_000_000_000;
 
+    const EDeprecatedFunction: u64 = 0;
     const ENotEnoughSui: u64 = 1;
     const EAlreadyMax: u64 = 2;
     const EUnFinished: u64 = 3;
+    const ENotStart: u64 = 4;
 
     struct WITNESS has drop {}
 
@@ -88,22 +90,25 @@ module smartinscription::mint_ratio_50_factory {
         transfer::public_share_object(tick_record);
     }
 
-    public entry fun mint(
+    public entry fun mint_v2(
         tick_record: &mut TickRecordV2,
         fee_sui: &mut Coin<SUI>,
+        clk: &Clock,
         ctx: &mut TxContext
     ) {
-        let ms = do_mint(tick_record, fee_sui, ctx);
+        let ms = do_mint_v2(tick_record, fee_sui, clk, ctx);
         transfer::public_transfer(ms, tx_context::sender(ctx));
     }
 
-    public fun do_mint(
+    public fun do_mint_v2(
         tick_record: &mut TickRecordV2,
         fee_sui: &mut Coin<SUI>,
+        clk: &Clock,
         ctx: &mut TxContext
     ): Movescription {
         let remain = movescription::tick_record_v2_remain(tick_record);
         let mint_ratio_factory = movescription::tick_record_borrow_mut_df<MintRatioFactory, WITNESS>(tick_record, WITNESS{});
+        assert!(clock::timestamp_ms(clk) > mint_ratio_factory.start_time_ms, ENotStart);
         let sui_value = coin::value(fee_sui);
         assert!(sui_value >= mint_ratio_factory.min_value_sui, ENotEnoughSui);
 
@@ -132,6 +137,22 @@ module smartinscription::mint_ratio_50_factory {
         let locked_sui = coin::into_balance<SUI>(coin::split<SUI>(fee_sui, sui_value, ctx));
         let minted_movescription = movescription::do_mint_with_witness(tick_record, locked_sui, amount, option::none(), WITNESS{}, ctx);
         minted_movescription
+    }
+
+    public entry fun mint(
+        _tick_record: &mut TickRecordV2,
+        _fee_sui: &mut Coin<SUI>,
+        _ctx: &mut TxContext
+    ) {
+        abort EDeprecatedFunction
+    }
+
+    public fun do_mint(
+        _tick_record: &mut TickRecordV2,
+        _fee_sui: &mut Coin<SUI>,
+        _ctx: &mut TxContext
+    ): Movescription {
+        abort EDeprecatedFunction
     }
 
     public entry fun clean(tick_record: &mut TickRecordV2, times: u64) {
