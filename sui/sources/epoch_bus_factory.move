@@ -67,7 +67,8 @@ module smartinscription::epoch_bus_factory{
     /// This version do not affect the origin version on mainnet. 
     public fun deploy_move_tick(
         deploy_record: &mut DeployRecord, 
-        ctx: &mut TxContext) {
+        ctx: &mut TxContext
+    ) {
         let tick = tick_name::move_tick();
         if(movescription::is_deployed(deploy_record, tick)){
             return
@@ -87,7 +88,8 @@ module smartinscription::epoch_bus_factory{
         start_time_ms: u64,
         epoch_count: u64, 
         clock: &Clock,
-        ctx: &mut TxContext) {
+        ctx: &mut TxContext
+    ) {
         do_deploy(deploy_record, tick_tick_record, tick_name, total_supply, init_locked_sui, start_time_ms, epoch_count, clock, ctx);
     }
     
@@ -120,7 +122,8 @@ module smartinscription::epoch_bus_factory{
         total_supply: u64,
         init_locked_sui: u64,
         start_time_ms: u64,
-        epoch_count: u64, ctx: &mut TxContext) {
+        epoch_count: u64, ctx: &mut TxContext
+    ) {
         let factory = EpochBusFactory{
             init_locked_sui,
             start_time_ms,
@@ -137,7 +140,8 @@ module smartinscription::epoch_bus_factory{
         tick_record: &mut TickRecordV2,
         locked_sui: Coin<SUI>,
         clk: &Clock,
-        ctx: &mut TxContext) {
+        ctx: &mut TxContext
+    ) {
         do_mint(tick_record, locked_sui, clk, ctx);
     }
 
