@@ -14,6 +14,8 @@ module smartinscription::movescription {
     use sui::package::{Self, Publisher};
     use sui::display;
     use sui::dynamic_field as df;
+    use sui_system::staking_pool::StakedSui;
+    use sui_system::sui_system::{request_add_stake_non_entry, SuiSystemState, request_withdraw_stake_non_entry};
     use smartinscription::string_util::{to_uppercase};
     use smartinscription::svg;
     use smartinscription::type_util::{Self, type_to_name};
@@ -1008,6 +1010,35 @@ module smartinscription::movescription {
 
     public(friend) fun tick_record_epoch_records(tick_record: &mut TickRecord) : &mut Table<u64, EpochRecord> {
         &mut tick_record.epoch_records
+    }
+
+    public entry fun stake_movescription_acc(
+        wrapper: &mut SuiSystemState,
+        validator_address: address,
+        movescription: &mut Movescription,
+        ctx: &mut TxContext
+    ){
+        let value = acc(movescription);
+        let stake = withdraw_acc(movescription, value, ctx);
+        let staked_sui = request_add_stake_non_entry(wrapper, stake, validator_address, ctx);
+        // assert not staked before
+        add_df(movescription, staked_sui)
+    }
+
+    public entry fun withdraw_stake_movescription_acc(
+        wrapper: &mut SuiSystemState,
+        movescription: &mut Movescription,
+        ctx: &mut TxContext,
+    ){
+        // assert staked before
+        let staked_sui = remove_df<StakedSui>(movescription);
+        let sui = request_withdraw_stake_non_entry(wrapper, staked_sui, ctx);
+        balance::join(&mut movescription.acc, sui);
+    }
+
+    fun withdraw_acc(movescription: &mut Movescription, value: u64, ctx: &mut TxContext): Coin<SUI> {
+        assert!(value <= acc(movescription), ErrorNotEnoughBalance);
+        coin::take(&mut movescription.acc, value, ctx)
     }
 
     // ========= Test Functions =========
