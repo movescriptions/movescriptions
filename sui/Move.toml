@@ -11,6 +11,8 @@ published-at = "0x6d773a8c66acb2db36d92515c8e071f4ed4bed1b3658ac9fbd6d4106d1db30
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.17.3", override = true}
+SuiSystem = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-system", rev = "mainnet-v1.17.3", override = true}
+
 #CetusClmm = { git = "https://github.com/CetusProtocol/cetus-clmm-interface.git", subdir = "sui/clmmpool", rev = "testnet-v1.2.0" }
 CetusClmm = { git = "https://github.com/CetusProtocol/cetus-clmm-interface.git", subdir = "sui/clmmpool", rev = "mainnet-v1.2.0" }
 #IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", subdir = "sui", rev = "sui-testnet" }
@@ -22,3 +24,4 @@ IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", subdi
 #testnet
 #smartinscription = "0x757a3250eaaa0ab7f2873f70e496688e35b27928a2d4a31bec996a9f35ba8686"
 smartinscription = "0x0"
+sui_system = "0x3"

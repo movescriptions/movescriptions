@@ -14,6 +14,8 @@ module smartinscription::movescription {
     use sui::package::{Self, Publisher};
     use sui::display;
     use sui::dynamic_field as df;
+    use sui_system::staking_pool::StakedSui;
+    use sui_system::sui_system::{request_add_stake_non_entry, SuiSystemState, request_withdraw_stake_non_entry};
     use smartinscription::string_util::{to_uppercase};
     use smartinscription::svg;
     use smartinscription::type_util::{Self, type_to_name};
@@ -723,6 +725,29 @@ module smartinscription::movescription {
         value
     }
 
+    /// Add the `Value` type dynamic field to the movescription, it will add attach_coin count.
+    /// If use this function add dynamic field, please use `remove_df_with_attach` to remove.
+    fun add_df_with_attach<Value: store>(
+        movescription: &mut Movescription,
+        value: Value,
+    ) {
+        let name = type_to_name<Value>();
+        movescription.attach_coin = movescription.attach_coin + 1;
+        df::add(&mut movescription.id, name, value);
+    }
+
+    /// Returns the `Value` type dynamic field of the movescription, it will reduce attach_coin count.
+    /// If use this function remove dynamic field, please use `add_df_with_attach` to add before.
+    fun remove_df_with_attach<Value: store>(
+        movescription: &mut Movescription,
+    ): Value {
+        let name = type_to_name<Value>();
+        // assert attach_coin > 0
+        movescription.attach_coin = movescription.attach_coin - 1;
+        let value: Value = df::remove<String, Value>(&mut movescription.id, name);
+        value
+    }
+
     /// Returns if the movescription contains the `Value` type dynamic field
     fun exists_df<Value: store>(
         movescription: &Movescription,
@@ -1008,6 +1033,38 @@ module smartinscription::movescription {
 
     public(friend) fun tick_record_epoch_records(tick_record: &mut TickRecord) : &mut Table<u64, EpochRecord> {
         &mut tick_record.epoch_records
+    }
+
+    /// This function use acc to stake validator
+    public entry fun stake_movescription_acc(
+        wrapper: &mut SuiSystemState,
+        validator_address: address,
+        movescription: &mut Movescription,
+        ctx: &mut TxContext
+    ){
+        let value = acc(movescription);
+        let stake = withdraw_acc(movescription, value, ctx);
+        let staked_sui = request_add_stake_non_entry(wrapper, stake, validator_address, ctx);
+        // assert not staked before
+        add_df_with_attach(movescription, staked_sui)
+    }
+
+    /// This function unstake validator and return coin to acc.
+    public entry fun withdraw_stake_movescription_acc(
+        wrapper: &mut SuiSystemState,
+        movescription: &mut Movescription,
+        ctx: &mut TxContext,
+    ){
+        // assert staked before
+        let staked_sui = remove_df_with_attach<StakedSui>(movescription);
+        movescription.attach_coin = movescription.attach_coin - 1;
+        let sui = request_withdraw_stake_non_entry(wrapper, staked_sui, ctx);
+        balance::join(&mut movescription.acc, sui);
+    }
+
+    fun withdraw_acc(movescription: &mut Movescription, value: u64, ctx: &mut TxContext): Coin<SUI> {
+        assert!(value <= acc(movescription), ErrorNotEnoughBalance);
+        coin::take(&mut movescription.acc, value, ctx)
     }
 
     // ========= Test Functions =========
