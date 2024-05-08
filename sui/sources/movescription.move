@@ -1057,7 +1057,6 @@ module smartinscription::movescription {
     ){
         // assert staked before
         let staked_sui = remove_df_with_attach<StakedSui>(movescription);
-        movescription.attach_coin = movescription.attach_coin - 1;
         let sui = request_withdraw_stake_non_entry(wrapper, staked_sui, ctx);
         balance::join(&mut movescription.acc, sui);
     }
