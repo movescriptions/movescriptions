@@ -2,6 +2,15 @@ module smartinscription::movescription {
     use std::ascii::{Self, string, String};
     use std::vector;
     use std::option::{Self, Option};
+    use protocol::market::Market;
+    use protocol::mint::mint as sca_mint;
+    use protocol::redeem::redeem;
+    use protocol::reserve::MarketCoin;
+    use protocol::version::Version;
+    use spool::rewards_pool::RewardsPool;
+    use spool::spool::Spool;
+    use spool::spool_account::{SpoolAccount, stake_amount};
+    use spool::user::{stake, new_spool_account, unstake, redeem_rewards};
     use sui::object::{Self, UID, ID};
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
@@ -14,6 +23,7 @@ module smartinscription::movescription {
     use sui::package::{Self, Publisher};
     use sui::display;
     use sui::dynamic_field as df;
+    use sui::transfer::public_transfer;
     use sui_system::staking_pool::StakedSui;
     use sui_system::sui_system::{request_add_stake_non_entry, SuiSystemState, request_withdraw_stake_non_entry};
     use smartinscription::string_util::{to_uppercase};
@@ -1057,9 +1067,54 @@ module smartinscription::movescription {
     ){
         // assert staked before
         let staked_sui = remove_df_with_attach<StakedSui>(movescription);
-        movescription.attach_coin = movescription.attach_coin - 1;
         let sui = request_withdraw_stake_non_entry(wrapper, staked_sui, ctx);
         balance::join(&mut movescription.acc, sui);
+    }
+
+    public entry fun scallop_stake(
+        version: &Version,
+        market: &mut Market,
+        spool: &mut Spool,
+        movescription: &mut Movescription,
+        clock: &Clock,
+        ctx: &mut TxContext,
+    ){
+        let value = acc(movescription);
+        let stake = withdraw_acc(movescription, value, ctx);
+        if (!exists_df<SpoolAccount<MarketCoin<SUI>>>(movescription)) {
+            add_df_with_attach(movescription, new_spool_account<MarketCoin<SUI>>(spool, clock, ctx));
+        };
+        let spool_account = borrow_df_mut<SpoolAccount<MarketCoin<SUI>>>(movescription);
+        let ssui = sca_mint<SUI>(version, market, stake, clock, ctx);
+        stake<MarketCoin<SUI>>(spool, spool_account, ssui, clock, ctx)
+    }
+
+    public entry fun scallop_unstake(
+        version: &Version,
+        market: &mut Market,
+        spool: &mut Spool,
+        movescription: &mut Movescription,
+        clock: &Clock,
+        ctx: &mut TxContext,
+    ){
+        let spool_account = remove_df_with_attach<SpoolAccount<MarketCoin<SUI>>>(movescription);
+        let unstake_amount = stake_amount(&spool_account);
+        let ssui = unstake<MarketCoin<SUI>>(spool, &mut spool_account, unstake_amount, clock, ctx);
+        let coin = redeem(version, market, ssui, clock, ctx);
+        balance::join(&mut movescription.acc, coin::into_balance(coin));
+        public_transfer(spool_account, @0x0)
+    }
+
+    public entry fun scallop_redeem_reward(
+        spool: &mut Spool,
+        rewards_pool: &mut RewardsPool<SUI>,
+        movescription: &mut Movescription,
+        clock: &Clock,
+        ctx: &mut TxContext,
+    ){
+        let spool_account = borrow_df_mut<SpoolAccount<MarketCoin<SUI>>>(movescription);
+        let coin = redeem_rewards<MarketCoin<SUI>, SUI>(spool, rewards_pool, spool_account, clock, ctx);
+        balance::join(&mut movescription.acc, coin::into_balance(coin));
     }
 
     fun withdraw_acc(movescription: &mut Movescription, value: u64, ctx: &mut TxContext): Coin<SUI> {
