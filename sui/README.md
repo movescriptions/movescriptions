@@ -77,6 +77,9 @@ sui client call --package 0xa296754b816dd405a435c669d35869d12a532516c9f49220ef18
 * DeployTx: 6wPbXcZmzvCxbeVpUUEKgjBCL6dqh3t8R3XLwvafGs9u
 * PackageID: 0x6d773a8c66acb2db36d92515c8e071f4ed4bed1b3658ac9fbd6d4106d1db3027
 
+### v4.3.1
+* DeployTx: J7EC1gqt3g5JnXS61A9mkMFADC2HmA8vvqrWhnnUx9oN
+* PackageID: 0x7ee8fcfd712c94e472e776ca1cd65f15b7493bd6b5506329dd71ee07288b0f56
 
 ## Testnet
 
@@ -164,3 +167,7 @@ sui client call --package 0x1258e7b1a145ed6cf91d17d4fd034a27458135df3eed6ac3dfa7
 ### v4.2.1
 * DeployTx: BS8sLJWfiGf5X5S8FsxJayFW5PQaTqyqW68HTMUS7kju
 * PackageID: 0x7c68e13881459da0e6e0be81e0e08e3416283a676f0c2ec90440be6f01c6bd0b
+
+### v4.3.1
+* DeployTx: 7wPrQkfBYpoVsits1D7UVV4wMj9ewcog7CgCTUS4WXek
+* PackageID: 0x143f5e241161924d26d9959cc5864645e688443e904ea955f985e27182757c9c

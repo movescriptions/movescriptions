@@ -1,11 +1,11 @@
 [package]
 name = "SmartInscription"
 authors = ["Pika", "10xhunter", "jolestar", "jojoo-eth"]
-version = "4.2.1"
+version = "4.3.1"
 #mainnet
-published-at = "0x6d773a8c66acb2db36d92515c8e071f4ed4bed1b3658ac9fbd6d4106d1db3027"
+published-at = "0x7ee8fcfd712c94e472e776ca1cd65f15b7493bd6b5506329dd71ee07288b0f56"
 #testnet
-#published-at = "0x7c68e13881459da0e6e0be81e0e08e3416283a676f0c2ec90440be6f01c6bd0b"
+#published-at = "0x143f5e241161924d26d9959cc5864645e688443e904ea955f985e27182757c9c"
 #devnet
 #published-at = "0x3579bb6bf94eddd21e05bfeb16eb28f8e2d2c79561745fffab671b6bff6ea2f6"
 
@@ -13,15 +13,18 @@ published-at = "0x6d773a8c66acb2db36d92515c8e071f4ed4bed1b3658ac9fbd6d4106d1db30
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.17.3", override = true}
 SuiSystem = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-system", rev = "mainnet-v1.17.3", override = true}
 
-#CetusClmm = { git = "https://github.com/CetusProtocol/cetus-clmm-interface.git", subdir = "sui/clmmpool", rev = "testnet-v1.2.0" }
-CetusClmm = { git = "https://github.com/CetusProtocol/cetus-clmm-interface.git", subdir = "sui/clmmpool", rev = "mainnet-v1.2.0" }
-#IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", subdir = "sui", rev = "sui-testnet" }
-IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", subdir = "sui", rev = "sui-v1.1.0" }
+#CetusClmm = { git = "https://github.com/CetusProtocol/cetus-clmm-interface.git", subdir = "sui/clmmpool", rev = "testnet-v1.23.1" }
+CetusClmm = { git = "https://github.com/CetusProtocol/cetus-clmm-interface.git", subdir = "sui/clmmpool", rev = "mainnet-v1.23.1" }
+#IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", subdir = "sui", rev = "testnet-v1.23.1" }
+IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", subdir = "sui", rev = "mainnet-v1.23.1" }
 
 # TODO here should update branch
-ScallopProtocol = { git = "https://github.com/scallop-io/sui-lending-protocol.git", subdir = "contracts/protocol", rev = "mainnet"}
-Math = { git = "https://github.com/scallop-io/sui-lending-protocol.git", subdir = "contracts/libs/math", rev = "mainnet", override = true}
-spool = { git = "https://github.com/scallop-io/spool-contract-interface.git", subdir = "spool", rev = "main"}
+#ScallopProtocol = { git = "https://github.com/movescriptions/sui-lending-protocol.git", subdir = "contracts/protocol", rev = "testnet", override = true}
+ScallopProtocol = { git = "https://github.com/movescriptions/sui-lending-protocol.git", subdir = "contracts/protocol", rev = "mainnet", override = true}
+#Math = { git = "https://github.com/movescriptions/sui-lending-protocol.git", subdir = "contracts/libs/math", rev = "testnet", override = true}
+Math = { git = "https://github.com/movescriptions/sui-lending-protocol.git", subdir = "contracts/libs/math", rev = "mainnet", override = true}
+#spool = { git = "https://github.com/movescriptions/spool-contract-interface.git", subdir = "spool", rev = "testnet"}
+spool = { git = "https://github.com/movescriptions/spool-contract-interface.git", subdir = "spool", rev = "mainnet"}
 
 [addresses]
 #mainnet
