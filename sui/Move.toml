@@ -30,6 +30,6 @@ spool = { git = "https://github.com/movescriptions/spool-contract-interface.git"
 #mainnet
 #smartinscription = "0x830fe26674dc638af7c3d84030e2575f44a2bdc1baa1f4757cfe010a4b106b6a"
 #testnet
-#smartinscription = "0x757a3250eaaa0ab7f2873f70e496688e35b27928a2d4a31bec996a9f35ba8686"
-smartinscription = "0x0"
+smartinscription = "0x757a3250eaaa0ab7f2873f70e496688e35b27928a2d4a31bec996a9f35ba8686"
+#smartinscription = "0x0"
 sui_system = "0x3"
