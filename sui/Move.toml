@@ -1,9 +1,9 @@
 [package]
 name = "SmartInscription"
 authors = ["Pika", "10xhunter", "jolestar", "jojoo-eth"]
-version = "4.3.1"
+version = "4.3.2"
 #mainnet
-published-at = "0x7ee8fcfd712c94e472e776ca1cd65f15b7493bd6b5506329dd71ee07288b0f56"
+published-at = "0x88a632719f065fae7509d335584e8ef9ea3cb528c77bb8d325835303d36c382e"
 #testnet
 #published-at = "0x143f5e241161924d26d9959cc5864645e688443e904ea955f985e27182757c9c"
 #devnet
@@ -18,13 +18,12 @@ CetusClmm = { git = "https://github.com/CetusProtocol/cetus-clmm-interface.git",
 #IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", subdir = "sui", rev = "testnet-v1.23.1" }
 IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", subdir = "sui", rev = "mainnet-v1.23.1" }
 
-# TODO here should update branch
 #ScallopProtocol = { git = "https://github.com/movescriptions/sui-lending-protocol.git", subdir = "contracts/protocol", rev = "testnet", override = true}
-ScallopProtocol = { git = "https://github.com/movescriptions/sui-lending-protocol.git", subdir = "contracts/protocol", rev = "mainnet", override = true}
+ScallopProtocol = { git = "https://github.com/scallop-io/sui-lending-protocol.git", subdir = "contracts/protocol", rev = "mainnet-v1.5", override = true}
 #Math = { git = "https://github.com/movescriptions/sui-lending-protocol.git", subdir = "contracts/libs/math", rev = "testnet", override = true}
-Math = { git = "https://github.com/movescriptions/sui-lending-protocol.git", subdir = "contracts/libs/math", rev = "mainnet", override = true}
+Math = { git = "https://github.com/scallop-io/sui-lending-protocol.git", subdir = "contracts/libs/math", rev = "mainnet-v1.5", override = true}
 #spool = { git = "https://github.com/movescriptions/spool-contract-interface.git", subdir = "spool", rev = "testnet"}
-spool = { git = "https://github.com/movescriptions/spool-contract-interface.git", subdir = "spool", rev = "mainnet"}
+spool = { git = "https://github.com/scallop-io/spool-contract-interface.git", subdir = "spool", rev = "main", override = true}
 
 [addresses]
 #mainnet
